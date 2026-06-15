@@ -55,6 +55,11 @@ export class BloggerAgent extends BaseAgent {
 
     const seo = seoData as Record<string, unknown> | undefined;
     const finalTitle = seo?.metaTitle as string || title;
+    const metaDescription = seo?.metaDescription as string || '';
+
+    if (metaDescription) {
+      htmlContent = '<p><em>' + this.escapeHtml(metaDescription) + '</em></p>\n' + htmlContent;
+    }
 
     htmlContent = this.injectSEOMetadata(htmlContent, seo, title, keyword);
 

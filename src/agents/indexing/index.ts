@@ -23,20 +23,22 @@ export class IndexingAgent extends BaseAgent {
     }
   }
 
-  private async submitUrl(articleId: number, url: string): Promise<AgentOutput> {
+  private async submitUrl(articleId: number | undefined, url: string): Promise<AgentOutput> {
     const success = await submitUrlForIndexing(url);
 
-    await db.insert(indexingLogs).values({
-      articleId,
-      url,
-      status: success ? 'submitted' : 'failed',
-      response: { success },
-    });
+    if (articleId) {
+      await db.insert(indexingLogs).values({
+        articleId,
+        url,
+        status: success ? 'submitted' : 'failed',
+        response: { success },
+      });
+    }
 
     if (success) {
-      logger.info('URL submitted to Google Indexing API', { articleId, url });
+      logger.info('URL submitted to Google Indexing API', { articleId: articleId || null, url });
     } else {
-      logger.warn('URL submission failed', { articleId, url });
+      logger.warn('URL submission failed', { articleId: articleId || null, url });
     }
 
     return {

@@ -13,7 +13,10 @@ Rules:
 - Never use cliches or filler
 - Write in Markdown format
 - Use short paragraphs and sentences
-- Include real-world examples where relevant`;
+- Include real-world examples where relevant
+- Write AT LEAST 2000 words (comprehensive, detailed coverage)
+- Cover every section from the outline thoroughly
+- Each H2 section should have at least 100-150 words of content`;
 
 export class WriterAgent extends BaseAgent {
   constructor() {
