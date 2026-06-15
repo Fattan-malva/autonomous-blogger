@@ -49,6 +49,12 @@ export class BloggerAgent extends BaseAgent {
     let htmlContent = this.markdownToHtml(content);
     const keyword = (labels || [])[0] || '';
 
+    // Format code blocks with GitHub-style wrapper + copy button
+    htmlContent = this.formatCodeBlocks(htmlContent);
+
+    // Add GitHub README-style CSS
+    htmlContent = this.injectContentStyles() + '\n' + htmlContent;
+
     if (adsterraLayout) {
       htmlContent = this.injectAdsterra(htmlContent, adsterraLayout);
     }
@@ -62,6 +68,9 @@ export class BloggerAgent extends BaseAgent {
     }
 
     htmlContent = this.injectSEOMetadata(htmlContent, seo, title, keyword);
+
+    // Copy button script at the end
+    htmlContent += '\n' + this.getCopyButtonScript();
 
     const bloggerPost: BloggerPost = {
       title: finalTitle,
@@ -143,28 +152,147 @@ export class BloggerAgent extends BaseAgent {
   private markdownToHtml(markdown: string): string {
     let html = markdown;
 
+    // Protect code blocks from other transformations
+    const codeBlocks: string[] = [];
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      const idx = codeBlocks.length;
+      codeBlocks.push(`<pre><code class="language-${lang || 'text'}">${this.escapeHtml(code.trimEnd())}</code></pre>`);
+      return `%%CODEBLOCK_${idx}%%`;
+    });
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Headings
+    html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
     html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
     html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+    // Horizontal rules
+    html = html.replace(/^(?:---|\*\*\*|___)\s*$/gm, '<hr />');
+
+    // Blockquotes
+    html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+    // Bold & italic
+    html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Unordered lists
     html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+    html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+    // Ordered lists
+    html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/((?:<li>.*<\/li>\n?)+)(?=\s*<\/?[u]?l|\s*$)/g, (match) => {
+      if (!match.startsWith('<ul>')) {
+        return '<ol>' + match + '</ol>';
+      }
+      return match;
+    });
+
+    // Links & images
     html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
-    html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" />');
+    html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" loading="lazy" />');
+
+    // Tables (basic — pipe syntax)
+    html = html.replace(/^\|(.+)\|$/gm, (line) => {
+      const cells = line.split('|').filter(c => c.trim()).map(c => c.trim());
+      if (cells.every(c => /^[-:]+$/.test(c))) return ''; // separator row
+      const tag = line.includes('---') ? 'th' : 'td';
+      return '<tr>' + cells.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>';
+    });
+    html = html.replace(/(<tr>.*<\/tr>\n?)+/g, '<table>$&</table>');
+
+    // Paragraphs (split on double newlines)
     html = html.replace(/\n\n/g, '</p><p>');
     html = '<p>' + html + '</p>';
+
+    // Cleanup empty tags
     html = html.replace(/<p><\/p>/g, '');
     html = html.replace(/<li><\/li>/g, '');
+    html = html.replace(/<blockquote><\/blockquote>/g, '');
+
+    // Restore code blocks
+    html = html.replace(/%%CODEBLOCK_(\d+)%%/g, (_, idx) => codeBlocks[parseInt(idx)]);
+
+    // Wrap standalone block elements properly
+    html = html.replace(/(<(?:pre|blockquote|table|hr|h[1-4]|ul|ol)[^>]*>)/g, '</p>$1');
+    html = html.replace(/(<\/(?:pre|blockquote|table|h[1-4]|ul|ol)>)/g, '$1<p>');
+    html = html.replace(/<p><\/p>/g, '');
 
     return html;
+  }
+
+  private injectContentStyles(): string {
+    return `<style>
+.code-block-wrapper { position: relative; margin: 1.5em 0; border-radius: 8px; overflow: hidden; border: 1px solid #d0d7de; }
+.code-block-wrapper pre { margin: 0; padding: 1em; overflow-x: auto; background: #f6f8fa; font-size: 14px; line-height: 1.5; tab-size: 2; }
+.code-block-wrapper code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; background: none; padding: 0; white-space: pre; }
+.code-block-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background: #e8ecf0; font-size: 12px; color: #57606a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; border-bottom: 1px solid #d0d7de; }
+.copy-btn { background: none; border: 1px solid #d0d7de; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: #57606a; font-family: inherit; }
+.copy-btn:hover { background: #d0d7de; }
+.copy-btn.copied { background: #2da44e; color: #fff; border-color: #2da44e; }
+blockquote { padding: 0.5em 1em; margin: 1em 0; border-left: 4px solid #d0d7de; color: #57606a; background: #f6f8fa; border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 14px; }
+table th, table td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+table th { background: #f6f8fa; font-weight: 600; }
+table tr:nth-child(even) { background: #f8f9fa; }
+code { padding: 2px 6px; border-radius: 4px; background: #f0f2f5; font-size: 0.9em; font-family: 'SFMono-Regular', Consolas, monospace; }
+pre code { background: none; padding: 0; }
+img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
+</style>`;
+  }
+
+  private formatCodeBlocks(html: string): string {
+    return html.replace(
+      /<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g,
+      (_, lang, code) => {
+        const langLabel = lang !== 'text' ? lang : '';
+        return `<div class="code-block-wrapper">
+<div class="code-block-header">
+<span>${langLabel}</span>
+<button class="copy-btn" onclick="copyCode(this)">Copy</button>
+</div>
+<pre><code class="language-${lang}">${code}</code></pre>
+</div>`;
+      }
+    );
+  }
+
+  private getCopyButtonScript(): string {
+    return `<script>
+function copyCode(btn) {
+  var pre = btn.parentElement.nextElementSibling;
+  var code = pre.querySelector('code') || pre;
+  var text = code.innerText || code.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+  }
+}
+</script>`;
   }
 
   private injectSEOMetadata(html: string, seo: Record<string, unknown> | undefined, title: string, keyword: string): string {
     const metaDescription = seo?.metaDescription as string || '';
     const schemaMarkup = seo?.schemaMarkup as Record<string, unknown> | undefined;
+    const og = seo?.openGraph as Record<string, unknown> | undefined;
+    const twitter = seo?.twitterCard as Record<string, unknown> | undefined;
 
     let head = '';
 
@@ -176,10 +304,21 @@ export class BloggerAgent extends BaseAgent {
       head += `\n<script type="application/ld+json">${JSON.stringify(schemaMarkup)}</script>`;
     }
 
-    const ogImage = seo?.openGraph as Record<string, unknown> | undefined;
-    if (ogImage?.image) {
-      head += `\n<meta property="og:image" content="${this.escapeHtml(ogImage.image as string)}" />`;
+    // Open Graph
+    head += `\n<meta property="og:title" content="${this.escapeHtml(og?.title as string || title)}" />`;
+    head += `\n<meta property="og:description" content="${this.escapeHtml(og?.description as string || metaDescription)}" />`;
+    head += `\n<meta property="og:type" content="article" />`;
+    if (og?.image) {
+      head += `\n<meta property="og:image" content="${this.escapeHtml(og.image as string)}" />`;
     }
+
+    // Twitter Card
+    head += `\n<meta name="twitter:card" content="summary_large_image" />`;
+    head += `\n<meta name="twitter:title" content="${this.escapeHtml(twitter?.title as string || title)}" />`;
+    head += `\n<meta name="twitter:description" content="${this.escapeHtml(twitter?.description as string || metaDescription)}" />`;
+
+    // Canonical
+    head += `\n<link rel="canonical" href="${this.escapeHtml(seo?.canonicalUrl as string || '')}" />`;
 
     head += `\n<meta name="keywords" content="${this.escapeHtml(keyword)}" />`;
 

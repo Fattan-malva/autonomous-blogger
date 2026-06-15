@@ -90,7 +90,9 @@ export async function getSiteUrl(): Promise<string> {
     if (sites.length === 0) {
       throw new Error('No sites found in Search Console');
     }
-    return sites[0].siteUrl || '';
+    // Prefer Blogger site over others
+    const blogspot = sites.find(s => s.siteUrl?.includes('blogspot'));
+    return (blogspot?.siteUrl || sites[0].siteUrl) ?? '';
   } catch (error) {
     logger.error('Failed to get Search Console site', { error });
     throw error;
