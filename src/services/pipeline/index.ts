@@ -135,8 +135,9 @@ export async function runFullPipeline(): Promise<PipelineResult> {
     const reviewData = reviewResult.data as Record<string, unknown> || {};
     const passed = reviewData.passed as boolean;
     const score = reviewData.overallScore as number;
-    logDone(passed !== false, `Score: ${score || 'N/A'}/100 ${passed ? '(PASS)' : '(FAIL, using draft)'}`);
-    const finalContent = passed ? contentForReview : rawContent;
+    logDone(passed !== false, `Score: ${score || 'N/A'}/100 ${passed ? '(PASS)' : '(FAIL, using humanized)'}`);
+    // Use humanized content always (not raw), even if review fails - better for publishing
+    const finalContent = humanizedContent || rawContent;
     result.stepsCompleted++;
     await sleep(STEP_DELAY_MS);
 

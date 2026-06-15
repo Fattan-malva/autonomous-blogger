@@ -11,7 +11,14 @@ Tasks:
 - Add personality where appropriate
 - Ensure conversational tone
 - Remove AI-sounding phrases
-- Make it read like a human expert wrote it`;
+- Make it read like a human expert wrote it
+
+IMPORTANT CONSTRAINTS:
+- PRESERVE all original content length - do NOT cut or reduce content
+- Keep ALL sections, paragraphs, and details
+- If original is X words, output must be at least X words
+- NEVER shorten the content - only rephrase and improve
+- Maintain the same word count as original or more`;
 
 export class HumanizerAgent extends BaseAgent {
   constructor() {
@@ -30,13 +37,16 @@ export class HumanizerAgent extends BaseAgent {
   }
 
   private async humanizeContent(content: string): Promise<AgentOutput> {
+    const wordCount = content.split(/\s+/).length;
     const prompt = `${HUMANIZER_SYSTEM_PROMPT}
 
-Humanize the following content. Make it read naturally, as if written by a human expert:
+Humanize the following article (${wordCount} words). CRITICAL: Preserve the full length - do NOT reduce, cut, or summarize. Keep every section, detail, and example.
+
+Article to humanize:
 
 ${content}
 
-Return only the humanized version. Keep all Markdown formatting, headings, and structure intact.`;
+Humanized version:`;
 
     const result = await generateContent(prompt);
 
