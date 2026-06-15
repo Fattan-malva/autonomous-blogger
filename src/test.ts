@@ -1,132 +1,375 @@
 import 'dotenv/config';
 import { env } from './config/env';
-import { logger } from './config/logger';
+import { google } from 'googleapis';
 
-async function main() {
-  console.log('\n========================================');
-  console.log('  TEST MODE — Autonomous Blogger SEO');
-  console.log('========================================\n');
+const success = (msg: string) => console.log(`✅ ${msg}`);
+const fail = (msg: string) => console.log(`❌ ${msg}`);
 
-  // 1. Cek env vars
-  console.log('[1] Memeriksa Environment Variables...');
-  const checks = [
-    { key: 'GOOGLE_AI_API_KEY', val: env.GOOGLE_AI_API_KEY },
-    { key: 'BLOGGER_BLOG_ID', val: env.BLOGGER_BLOG_ID },
-    { key: 'BLOGGER_CLIENT_ID', val: env.BLOGGER_CLIENT_ID },
-    { key: 'BLOGGER_CLIENT_SECRET', val: env.BLOGGER_CLIENT_SECRET },
-    { key: 'BLOGGER_REFRESH_TOKEN', val: env.BLOGGER_REFRESH_TOKEN },
-    { key: 'ADSTERRA_API_TOKEN', val: env.ADSTERRA_API_TOKEN },
-  ];
+const results = {
+  passed: 0,
+  failed: 0,
+};
 
-  let allPassed = true;
-  for (const c of checks) {
-    const ok = !!c.val;
-    console.log(`  ${ok ? '✓' : '✗'} ${c.key} = ${c.val ? c.val.substring(0, 20) + '...' : '(kosong)'}`);
-    if (!ok) allPassed = false;
-  }
+function ok(msg: string) {
+  results.passed++;
+  success(msg);
+}
 
-  if (!allPassed) {
-    console.log('\n  ⚠ Beberapa env vars masih kosong. Test tetap lanjut...\n');
-  } else {
-    console.log('  ✓ Semua env vars terisi\n');
-  }
+function bad(msg: string) {
+  results.failed++;
+  fail(msg);
+}
 
-  // 2. Test Google AI
-  console.log('[2] Mengecek Google AI API...');
-  try {
-    const { generateContent } = await import('./providers/google-ai');
-    const result = await generateContent('Katakan "Halo, sistem berjalan dengan baik!" dalam 1 kalimat.');
-    console.log(`  ✓ Response: ${result}`);
-  } catch (err: any) {
-    console.log(`  ✗ Gagal: ${err.message}`);
-  }
+function mask(value?: string) {
+  if (!value) return '(empty)';
+  if (value.length < 12) return '********';
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
 
-  // 3. Test Adsterra agent (tanpa DB)
-  console.log('\n[3] Mengecek Adsterra Agent...');
-  try {
-    const { AdsterraAgent } = await import('./agents/adsterra');
-    const agent = new AdsterraAgent();
-    const result = await agent.run({
-      action: 'generate-layout',
-      articleContent: '# Test Article\n\n## Introduction\n\nSome content here.\n\n## Main Section\n\nMore content.\n\n## FAQ\n\nQ&A here.',
-    });
-    const hasScripts = result.data?.layout
-      ? Object.values((result.data.layout as Record<string, string>)).some(v => typeof v === 'string' && v.includes('script'))
-      : false;
-    console.log(`  ✓ Layout generated: ${result.success}`);
-    console.log(`  ${hasScripts ? '✓' : '✗'} Ad scripts ${hasScripts ? 'tergenerate' : 'kosong (ADSTERRA_API_TOKEN tidak diisi)'}`);
-  } catch (err: any) {
-    console.log(`  ✗ Gagal: ${err.message}`);
-  }
+function section(title: string) {
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(title);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+}
 
-  // 4. Test agents (mock, tanpa DB)
-  console.log('\n[4] Mengecek Agents (mock mode)...');
-  const agentTests = [
-    { name: 'Research', file: './agents/research', action: 'discover-topics' },
-    { name: 'Planning', file: './agents/planning', action: 'create-plan' },
-    { name: 'Writer', file: './agents/writer', action: 'write-draft' },
-    { name: 'Reviewer', file: './agents/reviewer', action: 'review' },
-    { name: 'SEO', file: './agents/seo', action: 'generate-seo' },
-  ];
+function logError(err: any) {
+  bad(err?.message || 'Unknown error');
 
-  for (const test of agentTests) {
-    try {
-      const mod = await import(test.file);
-      const AgentClass = Object.values(mod)[0] as any;
-      const agent = new AgentClass();
-      if (agent.execute) {
-        console.log(`  ✓ ${test.name} agent: class loaded`);
-      }
-    } catch (err: any) {
-      console.log(`  ✗ ${test.name} agent: ${err.message}`);
-    }
-  }
+  const data =
+    err?.response?.data ||
+    err?.errors ||
+    err;
 
-  // 5. Test Express server
-  console.log('\n[5] Menjalankan Express server (port 3000)...');
-  try {
-    const express = (await import('express')).default;
-    const cors = (await import('cors')).default;
-    const helmet = (await import('helmet')).default;
-
-    const app = express();
-    app.use(helmet());
-    app.use(cors());
-    app.use(express.json());
-
-    app.get('/health', (_req: any, res: any) => {
-      res.json({ status: 'ok', mode: 'test', timestamp: new Date().toISOString() });
-    });
-
-    app.get('/env-check', (_req: any, res: any) => {
-      res.json({
-        googleAI: !!env.GOOGLE_AI_API_KEY,
-        blogger: !!env.BLOGGER_BLOG_ID && !!env.BLOGGER_REFRESH_TOKEN,
-        adsterra: !!env.ADSTERRA_API_TOKEN,
-        searchConsole: !!env.SEARCH_CONSOLE_REFRESH_TOKEN,
-      });
-    });
-
-    return new Promise<void>((resolve) => {
-      const server = app.listen(3000, () => {
-        console.log('  ✓ Server running di http://localhost:3000');
-        console.log('  ✓ Health check: http://localhost:3000/health');
-        console.log('  ✓ Env check:    http://localhost:3000/env-check');
-        console.log('\n========================================');
-        console.log('  TEST SELESAI — Tekan Ctrl+C untuk berhenti');
-        console.log('========================================\n');
-      });
-      server.on('error', (err: any) => {
-        console.log(`  ✗ Server gagal: ${err.message}`);
-        resolve();
-      });
-    });
-  } catch (err: any) {
-    console.log(`  ✗ Gagal: ${err.message}`);
+  if (data) {
+    console.log('\n📋 Error Details');
+    console.log(JSON.stringify(data, null, 2));
   }
 }
 
+async function testEnvironment() {
+  section('1️⃣ Environment Variables');
+
+  const vars = [
+    'GOOGLE_AI_API_KEY',
+    'BLOGGER_BLOG_ID',
+    'BLOGGER_CLIENT_ID',
+    'BLOGGER_CLIENT_SECRET',
+    'BLOGGER_REFRESH_TOKEN',
+    'ADSTERRA_API_TOKEN',
+  ];
+
+  for (const key of vars) {
+    const value = process.env[key];
+
+    if (value) {
+      ok(`${key.padEnd(30)} ${mask(value)}`);
+    } else {
+      bad(`${key} missing`);
+    }
+  }
+}
+
+async function testGoogleAI() {
+  section('2️⃣ Google AI');
+
+  try {
+    const { generateContent } = await import('./providers/google-ai');
+
+    const response = await generateContent(
+      'Reply ONLY with GOOGLE_AI_OK'
+    );
+
+    ok(`Response: ${response}`);
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function createOAuthClient() {
+  section('3️⃣ Blogger OAuth');
+
+  try {
+    const auth = new google.auth.OAuth2(
+      env.BLOGGER_CLIENT_ID,
+      env.BLOGGER_CLIENT_SECRET
+    );
+
+    auth.setCredentials({
+      refresh_token: env.BLOGGER_REFRESH_TOKEN,
+    });
+
+    const token = await auth.getAccessToken();
+
+    if (!token.token) {
+      throw new Error('No access token');
+    }
+
+    ok('Refresh token valid');
+    ok('Access token acquired');
+
+    return auth;
+  } catch (err: any) {
+    logError(err);
+    return null;
+  }
+}
+
+async function testGoogleAccount(auth: any) {
+  section('4️⃣ Google Account');
+
+  if (!auth) return;
+
+  try {
+    const oauth2 = google.oauth2({
+      version: 'v2',
+      auth,
+    });
+
+    const me = await oauth2.userinfo.get();
+
+    ok(`Email: ${me.data.email}`);
+    ok(`Verified: ${me.data.verified_email}`);
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function testScopes(auth: any) {
+  section('5️⃣ Token Scopes');
+
+  if (!auth) return;
+
+  try {
+    const accessToken =
+      (await auth.getAccessToken()).token;
+
+    if (!accessToken) {
+      throw new Error('No access token');
+    }
+
+    const info =
+      await auth.getTokenInfo(accessToken);
+
+    for (const scope of info.scopes || []) {
+      ok(scope);
+    }
+
+    const hasBlogger =
+      info.scopes?.includes(
+        'https://www.googleapis.com/auth/blogger'
+      );
+
+    if (hasBlogger) {
+      ok('Blogger scope present');
+    } else {
+      bad('Missing blogger scope');
+    }
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function testBloggerAccess(auth: any) {
+  section('6️⃣ Blogger Access');
+
+  if (!auth) return;
+
+  try {
+    const blogger = google.blogger({
+      version: 'v3',
+      auth,
+    });
+
+    const blogs =
+      await blogger.blogs.listByUser({
+        userId: 'self',
+      });
+
+    const items = blogs.data.items || [];
+
+    ok(`Found ${items.length} blog(s)`);
+
+    let found = false;
+
+    for (const blog of items) {
+      console.log(
+        `   • ${blog.name} (${blog.id})`
+      );
+
+      if (blog.id === env.BLOGGER_BLOG_ID) {
+        found = true;
+      }
+    }
+
+    if (found) {
+      ok('BLOGGER_BLOG_ID matches');
+    } else {
+      bad('BLOGGER_BLOG_ID not found');
+    }
+
+    const detail =
+      await blogger.blogs.get({
+        blogId: env.BLOGGER_BLOG_ID,
+      });
+
+    ok(`Blog title: ${detail.data.name}`);
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function testRead(auth: any) {
+  section('7️⃣ Blogger Read Tests');
+
+  if (!auth) return;
+
+  try {
+    const blogger = google.blogger({
+      version: 'v3',
+      auth,
+    });
+
+    const posts = await blogger.posts.list({
+      blogId: env.BLOGGER_BLOG_ID,
+    });
+
+    ok(
+      `Readable posts: ${
+        posts.data.items?.length || 0
+      }`
+    );
+
+    /**
+     * Blogger API typings berbeda antar versi.
+     * Parameter status harus berupa string[]
+     * dan kadang overload TS gagal.
+     */
+    const drafts = await blogger.posts.list({
+      blogId: env.BLOGGER_BLOG_ID,
+      status: ['DRAFT'],
+    });
+
+    ok(
+      `Readable drafts: ${
+        drafts.data.items?.length || 0
+      }`
+    );
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function testDraft(auth: any) {
+  section('8️⃣ Blogger Draft Write');
+
+  if (!auth) return;
+
+  try {
+    const blogger = google.blogger({
+      version: 'v3',
+      auth,
+    });
+
+    const result =
+      await blogger.posts.insert({
+        blogId: env.BLOGGER_BLOG_ID,
+        isDraft: true,
+        requestBody: {
+          title: `[DRAFT TEST] ${Date.now()}`,
+          content:
+            '<p>Draft created from diagnostic.</p>',
+        },
+      });
+
+    ok('Draft created');
+    ok(`Post ID: ${result.data.id}`);
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function testLivePublish(auth: any) {
+  section('9️⃣ Blogger Live Publish');
+
+  if (!auth) return;
+
+  try {
+    const blogger = google.blogger({
+      version: 'v3',
+      auth,
+    });
+
+    const result =
+      await blogger.posts.insert({
+        blogId: env.BLOGGER_BLOG_ID,
+        isDraft: false,
+        requestBody: {
+          title: `[LIVE TEST] ${Date.now()}`,
+          content:
+            '<p>Live publish diagnostic.</p>',
+        },
+      });
+
+    ok('Live publish successful');
+    ok(`URL: ${result.data.url}`);
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function testAdsterra() {
+  section('🔟 Adsterra');
+
+  try {
+    const { AdsterraAgent } =
+      await import('./agents/adsterra');
+
+    const agent = new AdsterraAgent();
+
+    const result = await agent.run({
+      action: 'generate-layout',
+      articleContent:
+        '# Test\n\n## Intro\n\nLorem ipsum',
+    });
+
+    ok(`Success: ${result.success}`);
+  } catch (err: any) {
+    logError(err);
+  }
+}
+
+async function main() {
+  console.clear();
+
+  console.log(`
+╔══════════════════════════════════════════╗
+║    AUTONOMOUS BLOGGER SEO DIAGNOSTIC     ║
+╚══════════════════════════════════════════╝
+`);
+
+  await testEnvironment();
+  await testGoogleAI();
+
+  const auth = await createOAuthClient();
+
+  await testGoogleAccount(auth);
+  await testScopes(auth);
+  await testBloggerAccess(auth);
+  await testRead(auth);
+  await testDraft(auth);
+  await testLivePublish(auth);
+  await testAdsterra();
+
+  console.log('\n');
+  console.log('════════════════════════════════════');
+  console.log('📊 SUMMARY');
+  console.log('════════════════════════════════════');
+  console.log(`✅ Passed: ${results.passed}`);
+  console.log(`❌ Failed: ${results.failed}`);
+  console.log('════════════════════════════════════\n');
+}
+
 main().catch((err) => {
-  console.error('Test gagal:', err);
+  console.error(err);
   process.exit(1);
 });
