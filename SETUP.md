@@ -101,12 +101,19 @@ SEARCH_CONSOLE_CLIENT_SECRET=GOCSPX-...
 
 1. Buka https://developers.google.com/oauthplayground
 2. Gear icon → pakai credentials kamu
-3. Scope: `https://www.googleapis.com/auth/webmasters.readonly`
-4. Authorize → Exchange code → Copy refresh token
+3. Scope — **gabung kedua scope ini dalam satu baris** (pisah dengan spasi):
+   ```
+   https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/indexing
+   ```
+4. Authorize → login dengan Google account
+5. Exchange authorization code for tokens
+6. Copy **Refresh token**
 
 ```
 SEARCH_CONSOLE_REFRESH_TOKEN=1//0g...
 ```
+
+> ⚠️ **PENTING**: Indexing API butuh scope `https://www.googleapis.com/auth/indexing`. Jika refresh token di-generate tanpa scope ini, Indexing step akan error 401 `unauthorized_client`. Kalau error tetap muncul, pastikan **Google Indexing API** sudah di-enable di https://console.cloud.google.com/apis/library/indexing.googleapis.com
 
 ### 4.3. Verifikasi Site di Search Console
 

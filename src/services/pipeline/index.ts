@@ -148,7 +148,6 @@ export async function runFullPipeline(): Promise<PipelineResult> {
       content: finalContent,
       title: planTitle,
       keyword: firstTopic,
-      sections: JSON.stringify((planResult.data?.plan as Record<string, unknown>)?.outline || []),
     });
     logDone(seoResult.success, 'SEO metadata generated');
     result.stepsCompleted++;

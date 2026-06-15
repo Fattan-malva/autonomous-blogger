@@ -23,7 +23,7 @@ export class SEOAgent extends BaseAgent {
 
 Title: "${title}"
 Keyword: "${keyword}"
-Content preview: ${content.substring(0, 1500)}
+Content preview: ${content.substring(0, 500)}
 
 Provide:
 - metaTitle: string (max 60 chars)

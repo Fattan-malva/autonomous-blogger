@@ -3,7 +3,7 @@ import { logger } from '../../config/logger';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 5000;
+const RETRY_DELAY_MS = 10000;
 
 interface Part {
   text?: string;

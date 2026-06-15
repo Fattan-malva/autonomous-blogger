@@ -112,7 +112,11 @@ export async function submitUrlForIndexing(url: string): Promise<boolean> {
     logger.info('URL submitted for indexing', { url });
     return true;
   } catch (error) {
-    logger.error('Failed to submit URL for indexing', { url, error });
+    const status = (error as { status?: number })?.status;
+    const msg = status === 401
+      ? 'Indexing API: 401 unauthorized_client — pastikan Indexing API sudah di-enable di Google Cloud Console dan refresh token discope ke https://www.googleapis.com/auth/indexing'
+      : `Indexing API gagal: ${(error as Error).message}`;
+    logger.error(msg, { url, error });
     return false;
   }
 }
