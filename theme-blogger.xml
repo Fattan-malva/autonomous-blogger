@@ -7,6 +7,24 @@
     <title>
       <data:blog.pageTitle/>
     </title>
+    <meta charset='utf-8'/>
+    <meta content='index, follow' name='robots'/>
+    <b:if cond='data:blog.metaDescription'>
+      <meta expr:content='data:blog.metaDescription' name='description'/>
+      <meta expr:content='data:blog.metaDescription' property='og:description'/>
+      <meta expr:content='data:blog.metaDescription' name='twitter:description'/>
+    </b:if>
+    <meta expr:content='data:blog.title' property='og:site_name'/>
+    <meta expr:content='data:blog.url' property='og:url'/>
+    <meta expr:content='data:blog.pageTitle' property='og:title'/>
+    <meta content='article' property='og:type'/>
+    <b:if cond='data:blog.postImageUrl'>
+      <meta expr:content='data:blog.postImageUrl' property='og:image'/>
+      <meta expr:content='data:blog.postImageUrl' name='twitter:image'/>
+    </b:if>
+    <meta content='summary_large_image' name='twitter:card'/>
+    <meta expr:content='data:blog.pageTitle' name='twitter:title'/>
+    <link expr:href='data:blog.url' rel='canonical'/>
     <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap' rel='stylesheet'/>
     <b:skin>
       <![CDATA[

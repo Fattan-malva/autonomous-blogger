@@ -8,7 +8,7 @@ import { ImageAgent } from './agents/image';
 import { AdsterraAgent } from './agents/adsterra';
 import { initGoogleAI } from './providers/google-ai';
 import { jsonPrompt, safeParseJson } from './utils/json';
-import { imageToHtml } from './utils/images';
+import { imageToHtml, imageUrlFromKeyword } from './utils/images';
 
 const RESULT_DIR = resolve(__dirname, '../result');
 
@@ -162,7 +162,11 @@ Return a JSON object`);
   };
 
   // --- Assemble HTML ---
+  const metaTitle = (seo?.metaTitle as string) || keyword;
   const metaDescription = (seo?.metaDescription as string) || '';
+  const canonicalUrl = (seo?.canonicalUrl as string) || '';
+  const openGraph = (seo?.openGraph as Record<string, string>) || {};
+  const twitterCard = (seo?.twitterCard as Record<string, string>) || {};
   const schemaMarkup = seo?.schemaMarkup as Record<string, unknown> | undefined;
 
   let htmlContent = markdownToHtml(rawContent);
@@ -219,32 +223,71 @@ Return a JSON object`);
     }
   }
 
-  // Build final output
-  const lines: string[] = [];
+  // Featured image URL for OG/Twitter
+  const featuredImg = imageList.find(i => i.purpose === 'featured');
+  const ogImageUrl = featuredImg?.src as string || imageUrlFromKeyword(keyword, 'featured');
+
+  // Build complete HTML head
+  const headLines: string[] = [
+    '<!DOCTYPE html>',
+    '<html lang="en">',
+    '<head>',
+    `<meta charset="UTF-8" />`,
+    `<meta name="viewport" content="width=device-width, initial-scale=1.0" />`,
+    `<title>${escapeHtml(metaTitle)} — Fattan Dev</title>`,
+    `<meta name="robots" content="index, follow" />`,
+  ];
 
   if (metaDescription) {
-    lines.push(`<meta name="description" content="${escapeHtml(metaDescription)}" />`);
+    headLines.push(`<meta name="description" content="${escapeHtml(metaDescription)}" />`);
+    headLines.push(`<meta name="twitter:description" content="${escapeHtml(twitterCard.description || metaDescription)}" />`);
+    headLines.push(`<meta property="og:description" content="${escapeHtml(openGraph.description || metaDescription)}" />`);
   }
+
+  headLines.push(`<meta name="keywords" content="${escapeHtml(keyword)}" />`);
+  headLines.push(`<meta property="og:title" content="${escapeHtml(openGraph.title || metaTitle)}" />`);
+  headLines.push(`<meta property="og:type" content="article" />`);
+  headLines.push(`<meta property="og:site_name" content="Fattan Dev" />`);
+  headLines.push(`<meta property="og:image" content="${escapeHtml(openGraph.image || ogImageUrl)}" />`);
+  headLines.push(`<meta name="twitter:card" content="summary_large_image" />`);
+  headLines.push(`<meta name="twitter:title" content="${escapeHtml(twitterCard.title || metaTitle)}" />`);
+  headLines.push(`<meta name="twitter:image" content="${escapeHtml(twitterCard.image || ogImageUrl)}" />`);
+
+  if (canonicalUrl) {
+    headLines.push(`<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`);
+  }
+
   if (schemaMarkup) {
-    lines.push(`<script type="application/ld+json">${JSON.stringify(schemaMarkup)}</script>`);
+    // Add image, datePublished, dateModified to schema if missing
+    const enhancedSchema = { ...schemaMarkup };
+    if (!enhancedSchema.datePublished) enhancedSchema.datePublished = new Date().toISOString().split('T')[0];
+    if (!enhancedSchema.dateModified) enhancedSchema.dateModified = new Date().toISOString().split('T')[0];
+    if (!enhancedSchema.image) enhancedSchema.image = ogImageUrl;
+    if (!enhancedSchema.url) enhancedSchema.url = canonicalUrl;
+    headLines.push(`<script type="application/ld+json">${JSON.stringify(enhancedSchema)}</script>`);
   }
-  lines.push(`<meta name="keywords" content="${escapeHtml(keyword)}" />`);
 
-  if (metaDescription) {
-    lines.push(`<p><em>${escapeHtml(metaDescription)}</em></p>`);
-  }
+  headLines.push('</head>');
+  headLines.push('<body>');
 
   if (adScripts.socialBar) {
-    lines.push(adScripts.socialBar);
+    headLines.push(adScripts.socialBar);
   }
 
-  lines.push(htmlContent);
+  if (metaDescription) {
+    headLines.push(`<p><em>${escapeHtml(metaDescription)}</em></p>`);
+  }
+
+  headLines.push(htmlContent);
 
   if (adScripts.popunder) {
-    lines.push(adScripts.popunder);
+    headLines.push(adScripts.popunder);
   }
 
-  const finalHtml = lines.join('\n');
+  headLines.push('</body>');
+  headLines.push('</html>');
+
+  const finalHtml = headLines.join('\n');
 
   // Save to result/
   mkdirSync(RESULT_DIR, { recursive: true });
