@@ -1,5 +1,5 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 
 const HUMANIZER_SYSTEM_PROMPT = `You are a Humanizer Agent. Make AI-generated content sound completely natural and human-written.
 
@@ -30,13 +30,15 @@ export class HumanizerAgent extends BaseAgent {
   }
 
   private async humanizeContent(content: string): Promise<AgentOutput> {
-    const prompt = `Humanize the following content. Make it read naturally, as if written by a human expert:
+    const prompt = `${HUMANIZER_SYSTEM_PROMPT}
+
+Humanize the following content. Make it read naturally, as if written by a human expert:
 
 ${content}
 
 Return only the humanized version. Keep all Markdown formatting, headings, and structure intact.`;
 
-    const result = await generateWithSystemPrompt(HUMANIZER_SYSTEM_PROMPT, prompt);
+    const result = await generateContent(prompt);
 
     return {
       success: true,

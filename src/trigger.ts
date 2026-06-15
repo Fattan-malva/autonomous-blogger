@@ -112,8 +112,19 @@ async function main() {
     articlePlan: planResult.data?.plan,
     researchData: deepResult.data,
   });
-  logDone(writeResult.success, `Written ${writeResult.data?.wordCount || 0} words`);
-  const rawContent = writeResult.data?.content as string;
+  const rawContent = writeResult.data?.content as string | undefined;
+
+  if (!rawContent) {
+    console.log('  ⚠ Writing failed, cannot continue pipeline.');
+    console.log(`\n${BORDER}`);
+    console.log('  ⚠ PIPELINE STOPPED (writing failed)');
+    console.log(BORDER);
+    console.log(`  Finished: ${new Date().toISOString()}`);
+    console.log(BORDER + '\n');
+    process.exit(1);
+  }
+
+  const planTitle = ((planResult.data?.plan as Record<string, unknown>)?.title as string) || firstTopic;
 
   // ========================================
   // STEP 7: HUMANIZATION
@@ -123,7 +134,8 @@ async function main() {
   const humanizerAgent = new HumanizerAgent();
   const humanizeResult = await humanizerAgent.run({ action: 'humanize', content: rawContent });
   logDone(humanizeResult.success, 'Humanized');
-  const humanizedContent = humanizeResult.data?.humanizedContent as string;
+  const humanizedContent = humanizeResult.data?.humanizedContent as string | undefined;
+  const contentForReview = humanizedContent || rawContent;
 
   // ========================================
   // STEP 8: QUALITY REVIEW
@@ -133,15 +145,15 @@ async function main() {
   const reviewerAgent = new ReviewerAgent();
   const reviewResult = await reviewerAgent.run({
     action: 'review',
-    content: humanizedContent,
+    content: contentForReview,
     articlePlan: planResult.data?.plan,
   });
   const reviewData = reviewResult.data as Record<string, unknown> || {};
   const passed = reviewData.passed as boolean;
   const score = reviewData.overallScore as number;
-  logDone(passed, `Score: ${score}/100 ${passed ? '(PASS)' : '(FAIL)'}`);
+  logDone(passed, `Score: ${score || 'N/A'}/100 ${passed ? '(PASS)' : '(FAIL)'}`);
 
-  const finalContent = passed ? humanizedContent : rawContent;
+  const finalContent = passed ? contentForReview : rawContent;
   if (!passed) {
     console.log('  ⚠ Review failed, using raw draft instead');
   }
@@ -155,7 +167,7 @@ async function main() {
   const seoResult = await seoAgent.run({
     action: 'generate-seo',
     content: finalContent,
-    title: (planResult.data?.plan as Record<string, unknown>)?.title as string || firstTopic,
+    title: planTitle,
     keyword: firstTopic,
   });
   logDone(seoResult.success, 'SEO metadata generated');
@@ -169,7 +181,7 @@ async function main() {
   const imageResult = await imageAgent.run({
     action: 'plan-images',
     content: finalContent,
-    title: (planResult.data?.plan as Record<string, unknown>)?.title as string || firstTopic,
+    title: planTitle,
   });
   logDone(imageResult.success, `Planned ${(imageResult.data?.images as Array<unknown>)?.length || 0} images`);
 
@@ -180,7 +192,7 @@ async function main() {
   logStep(step, TOTAL_STEPS, 'Adsterra — Generate Ad Layout');
   const adsterraAgent = new AdsterraAgent();
   const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: finalContent });
-  const hasAds = !!(adResult.data?.layout as Record<string, string>)?.socialBarScript;
+  const hasAds = !!(adResult.data?.layout as Record<string, unknown>)?.socialBarScript;
   logDone(adResult.success, hasAds ? 'Ad scripts generated' : 'No ADSTERRA_API_TOKEN configured');
 
   // ========================================
@@ -192,7 +204,7 @@ async function main() {
   const blogResult = await bloggerAgent.run({
     action: 'publish',
     content: finalContent,
-    title: (planResult.data?.plan as Record<string, unknown>)?.title as string || firstTopic,
+    title: planTitle,
     labels: [firstCluster || 'general'],
     seoData: seoResult.data?.seo,
     adsterraLayout: JSON.stringify(adResult.data?.layout || {}),
@@ -208,7 +220,7 @@ async function main() {
     const indexingAgent = new IndexingAgent();
     const indexResult = await indexingAgent.run({
       action: 'submit-url',
-      url: blogResult.data.url,
+      url: blogResult.data.url as string,
     });
     logDone(indexResult.success, `Indexing ${indexResult.success ? 'submitted' : 'failed'}`);
   } else {

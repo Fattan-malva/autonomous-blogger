@@ -1,5 +1,5 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 
 const WRITER_SYSTEM_PROMPT = `You are a Writer Agent for an SEO blog. Write high-quality, natural, human-readable content.
 
@@ -34,7 +34,9 @@ export class WriterAgent extends BaseAgent {
   private async writeDraft(articlePlan: string, researchData?: string): Promise<AgentOutput> {
     const plan = typeof articlePlan === 'string' ? JSON.parse(articlePlan) : articlePlan;
 
-    const prompt = `Write a complete article based on this plan:
+    const prompt = `${WRITER_SYSTEM_PROMPT}
+
+Write a complete article based on this plan:
 
 Title: ${plan.title || plan.plan?.title || 'Untitled'}
 Outline: ${JSON.stringify(plan.outline || plan.plan?.outline || 'Not specified')}
@@ -50,7 +52,7 @@ Write the complete article in Markdown. Include:
 4. FAQ section at the end
 5. A conclusion with key takeaways`;
 
-    const result = await generateWithSystemPrompt(WRITER_SYSTEM_PROMPT, prompt);
+    const result = await generateContent(prompt);
 
     return {
       success: true,
