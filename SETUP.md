@@ -20,10 +20,10 @@ Digunakan oleh semua agen AI (Research, Writer, SEO, dll).
 
 ```
 GOOGLE_AI_API_KEY=AIzaSy...
-GOOGLE_AI_MODEL=gemma-3-31b-it
+GOOGLE_AI_MODEL=gemma-4-26b-a4b-it
 ```
 
-> Bisa juga pakai `gemini-1.5-pro` atau `gemini-2.0-flash` jika ingin model Google.
+> Model default saat ini adalah **Gemma 4 26B**. Jika terjadi 500 error, retry otomatis 3x dengan delay 10s.
 
 ---
 
@@ -161,7 +161,10 @@ SEARCH_CONSOLE_CLIENT_SECRET=GOCSPX-...
 ADSTERRA_API_TOKEN=your_adsterra_api_token
 ```
 
-Semua script iklan (Social Bar, Native Banner, Display Banner, Popunder) akan di-generate otomatis dari token ini.
+Catatan penting:
+- Script iklan saat ini **di-hardcode dari dashboard Adsterra** (`Get Code`), bukan dari API.
+- API hanya dipakai untuk monitoring, bukan untuk generate semua script iklan.
+- Pastikan semua placement (Social Bar, Native Banner, Display Banner, Popunder) sudah aktif di dashboard.
 
 ---
 
@@ -186,14 +189,14 @@ REDIS_URL=redis://localhost:6379
 ## 7. Final .env Checklist
 
 ```
-NODE_ENV=development
+NODE_ENV=production
 PORT=3000
 
 DATABASE_URL=postgres://blogger:blogger_password@postgres:5432/blogger_seo
 REDIS_URL=redis://redis:6379
 
 GOOGLE_AI_API_KEY=AIzaSy...
-GOOGLE_AI_MODEL=gemma-3-31b-it
+GOOGLE_AI_MODEL=gemma-4-26b-a4b-it
 
 BLOGGER_BLOG_ID=1234567890123456789
 BLOGGER_CLIENT_ID=xxx.apps.googleusercontent.com
@@ -225,15 +228,53 @@ npm run migrate
 
 # 4. Jalankan app
 npm start
+```
 
-# Atau pakai Docker
+### Docker Production
+
+```bash
 docker-compose up -d
 ```
 
-### Mode Development
+### Manual Trigger & Scheduler
 
 ```bash
-npm run dev          # Express server (port 3000)
-npm run worker       # Worker processes (terminal terpisah)
-npm run scheduler    # Scheduler (terminal terpisah)
+npm run trigger    # Jalankan full pipeline manual (13 steps)
+npm run scheduler  # Jalankan cron scheduler (5x daily)
 ```
+
+---
+
+## 9. Dashboard Monitoring
+
+Setelah deploy, buka:
+
+```
+http://<your-vps-ip>:3000/
+```
+
+Dashboard menampilkan:
+- Overview artikel dan traffic
+- List artikel terbaru + SEO score
+- Analytics harian (impressions/clicks)
+- Revenue harian dan total
+- Riwayat pipeline
+- Status BullMQ queues
+
+---
+
+## 10. Troubleshooting
+
+### Search Console kosong
+- Pastikan blog sudah diverifikasi di Search Console
+- Pastikan `getSiteUrl()` membaca site `blogspot.com`
+- Data baru muncul setelah beberapa hari setelah artikel terindeks
+
+### Adsterra API 404
+- Normal jika endpoint `/domains` tidak mengembalikan data
+- Script iklan tetap jalan karena di-hardcode dari dashboard
+
+### Scheduler tidak jalan
+- Pastikan `src/services/scheduler/run.ts` dipanggil, bukan `index.ts`
+- Pastikan container scheduler di `docker-compose.yml` menjalankan `dist/services/scheduler/run.js`
+- Pastikan cron schedule sudah 5x sehari (00:00, 05:00, 10:00, 15:00, 20:00)

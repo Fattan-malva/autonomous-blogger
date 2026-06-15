@@ -10,16 +10,16 @@ CEO Agent (Orchestrator)
 ├── Competitor Agent     — Analisis kompetitor
 ├── SERP Gap Agent       — Celah konten di SERP
 ├── Planning Agent       — Blueprint artikel
-├── Writer Agent         — Menulis konten (AI)
+├── Writer Agent         — Menulis konten (Gemma 4)
 ├── Humanizer Agent      — Humanisasi tulisan AI
 ├── Reviewer Agent       — Validasi kualitas (min 85)
-├── SEO Agent            — Meta, schema, OG tags
-├── Image Agent          — Perencanaan gambar
+├── SEO Agent            — Meta, schema, OG tags, Canonical
+├── Image Agent          — Perencanaan gambar (Picsum)
 ├── Internal Link Agent  — Internal linking otomatis
 ├── Content Memory Agent — Cegah duplikasi
 ├── Topical Authority    — Topic clusters
-├── Blogger Agent        — Publisher ke Blogger API
-├── Adsterra Agent       — Inject script iklan
+├── Blogger Agent        — Publisher ke Blogger API + GitHub-style Formatting
+├── Adsterra Agent       — Inject script iklan (Dashboard hardcoded)
 ├── Indexing Agent       — Google Indexing API
 ├── Analytics Agent      — Sync Search Console
 ├── Revenue Agent        — Tracking pendapatan
@@ -27,7 +27,7 @@ CEO Agent (Orchestrator)
 └── Business Brain       — Rekomendasi strategis
 ```
 
-## Flow Penerbitan
+## Flow Penerbitan (13-Step Pipeline)
 
 ```
 Research → Competitor Analysis → SERP Gap → Planning
@@ -41,13 +41,26 @@ Research → Competitor Analysis → SERP Gap → Planning
 | Komponen | Teknologi |
 |----------|-----------|
 | Runtime | Node.js 20 + TypeScript |
-| AI | Google AI Studio (Gemma 3 31B) |
+| AI | Google AI Studio (Gemma 4 26B) |
 | Database | PostgreSQL 16 (via Drizzle ORM) |
 | Queue | BullMQ + Redis |
-| Scheduler | node-cron |
+| Scheduler | node-cron (5x Daily) |
 | API | Express, Google Blogger API v3, Google Search Console |
-| Monitoring | Grafana + Prometheus |
+| Monitoring | Custom Dashboard (Port 3000), Grafana, Prometheus |
 | Deployment | Docker Compose |
+
+## Dashboard Monitoring
+
+Akses dashboard terpadu untuk memonitor semua aktivitas bisnis:
+**URL:** `http://<your-vps-ip>:3000/`
+
+**Fitur Dashboard:**
+- **Overview:** Total articles, topics, impressions, revenue, and pipeline status.
+- **Articles:** List all published posts with SEO scores and analytics.
+- **Analytics:** Daily traffic charts (impressions/clicks) and top performing articles.
+- **Revenue:** Daily earnings chart and total revenue summary.
+- **Pipeline:** Real-time log of recent agent runs.
+- **Queues:** Monitoring of BullMQ queue health.
 
 ## Persyaratan
 
@@ -68,17 +81,10 @@ cp .env.example .env
 npm install
 
 # 2. Isi .env (lihat SETUP.md untuk panduan lengkap)
-#    - GOOGLE_AI_API_KEY
-#    - BLOGGER_* credentials
-#    - ADSTERRA_API_TOKEN
-
-# 3. Test dulu (tanpa database)
-npm run test
-
-# 4. Build
+# 3. Build
 npm run build
 
-# 5. Deploy dengan Docker
+# 4. Deploy dengan Docker
 docker-compose up -d
 ```
 
@@ -87,12 +93,9 @@ docker-compose up -d
 | Variable | Required | Deskripsi |
 |----------|----------|-----------|
 | `GOOGLE_AI_API_KEY` | ✓ | Google AI Studio API key |
-| `BLOGGER_BLOG_ID` | ✓ | ID blog Blogger |
-| `BLOGGER_CLIENT_ID` | ✓ | OAuth Client ID |
-| `BLOGGER_CLIENT_SECRET` | ✓ | OAuth Client Secret |
-| `BLOGGER_REFRESH_TOKEN` | ✓ | OAuth Refresh Token |
+| `BLOGGER_*` | ✓ | Credentials for Blogger API v3 |
 | `ADSTERRA_API_TOKEN` | ✓ | Token dari Settings > API |
-| `SEARCH_CONSOLE_*` | | Untuk analytics & indexing |
+| `SEARCH_CONSOLE_*` | ✓ | For analytics & indexing |
 | `DATABASE_URL` | ✓ | PostgreSQL connection |
 | `REDIS_URL` | ✓ | Redis connection |
 
@@ -100,59 +103,29 @@ Panduan lengkap dapatkan semua credential: [SETUP.md](./SETUP.md)
 
 ## Docker Services
 
-```bash
-docker-compose up -d    # Start semua service
-docker-compose logs -f  # Lihat log
-docker-compose down     # Stop semua service
-```
-
 | Service | Port | Fungsi |
 |---------|------|--------|
-| app | 3000 | Express server + API |
+| app | 3000 | Express server + Dashboard + API |
 | worker | - | Process queue jobs |
-| scheduler | - | Cron scheduler harian |
+| scheduler | - | Cron scheduler (5x daily) |
 | postgres | 5432 | Database |
 | redis | 6379 | Queue backend |
 | grafana | 3001 | Monitoring dashboard |
 | prometheus | 9090 | Metrics collection |
 | nginx | 80 | Reverse proxy |
 
-## Monitoring
+## Scheduler (5x Daily Full Pipeline)
 
-- **Health check:** `http://localhost:3000/health`
-- **Queue metrics:** `http://localhost:3000/metrics`
-- **Grafana:** `http://localhost:3001` (admin/admin)
-- **Adsterra Dashboard:** https://publishers.adsterra.com
-- **Google Search Console:** https://search.google.com/search-console
-
-## Scheduler (Daily)
-
-| Waktu UTC | Aktivitas |
-|-----------|-----------|
-| 00:00 | Topic Discovery |
-| 01:00 | Deep Research |
-| 02:00 | Competitor Analysis |
-| 03:00 | Article Planning |
-| 04:00 | Content Writing |
-| 05:00 | Humanization |
-| 06:00 | Quality Review |
-| 07:00 | SEO Optimization |
-| 08:00 | Image Planning |
-| 09:00 | **Publish ke Blogger** |
-| 10:00 | Submit Indexing |
-| 11:00 | Sync Analytics |
-| 12:00 | Sync Revenue |
-| Every 2h | Performance Analysis |
+Pipeline dijalankan otomatis 5x sehari untuk memastikan pertumbuhan konten yang konsisten:
+- **Jadwal:** 00:00, 05:00, 10:00, 15:00, 20:00 UTC.
 
 ## Scripts
 
 ```bash
-npm run dev        # Development server
 npm run build      # Compile TypeScript
-npm start          # Production server
-npm run worker     # Jalankan workers
-npm run scheduler  # Jalankan scheduler
-npm run test       # Test mode (tanpa DB)
+npm run trigger    # Manual trigger full pipeline (13 steps)
+npm run scheduler  # Jalankan scheduler (cron)
+npm run worker     # Jalankan workers (queue handler)
 npm run migrate    # Migrasi database
 ```
 
@@ -162,17 +135,13 @@ npm run migrate    # Migrasi database
 src/
 ├── agents/          # 20 agen AI
 ├── providers/       # Google AI & Blogger API
-├── services/        # Queue, Scheduler, Search Console, Storage
+├── services/        # Queue, Scheduler, Search Console
 ├── database/        # Schema, koneksi, migrasi
 ├── workers/         # Worker processes & orchestrator
+├── routes/          # Dashboard API endpoints
+├── public/          # Dashboard frontend (index.html)
 ├── config/          # Env & logger
-└── index.ts         # Entry point
-
-docker/
-├── docker-compose.yml
-├── Dockerfile
-├── nginx.conf
-└── prometheus.yml
+└── index.ts         # Express server (Port 3000)
 ```
 
 ## Lisensi

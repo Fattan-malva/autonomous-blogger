@@ -1,6 +1,4 @@
-# AGENT.md
-
-# Autonomous Blogger SEO Business
+# AGENT.md — Autonomous Blogger SEO Business
 
 ## Vision
 
@@ -18,31 +16,21 @@ Build a fully autonomous publishing business capable of:
 * Learning from performance data
 * Improving itself continuously
 
-The system should behave like a digital publishing company.
-
-Not like an article generator.
+The system should behave like a digital publishing company. Not like an article generator.
 
 ---
 
-# Primary Objective
+## Primary Objective
 
-Maximize:
-
-Organic Traffic
-+
-Indexed Pages
-+
-Adsterra Revenue
+Maximize: Organic Traffic + Indexed Pages + Adsterra Revenue
 
 while maintaining content quality.
 
 ---
 
-# Core Philosophy
+## Core Philosophy
 
-Never optimize for article count.
-
-Always optimize for:
+Never optimize for article count. Always optimize for:
 
 * User value
 * Search intent satisfaction
@@ -52,800 +40,408 @@ Always optimize for:
 
 ---
 
-# AI Provider
+## AI Provider
 
-Provider:
+Provider: Google AI Studio
 
-Google AI Studio
+Default Model: `gemma-4-26b-a4b-it`
 
-Default Model:
-
-Gemma 3 31B
-
-Requirements:
-
-* Dynamic context only
-* No static article prompts
-* No keyword stuffing
-* No fixed article templates
-
-The model should receive:
-
-Research Package
-+
-Competitor Intelligence
-+
-Topic Cluster Data
-+
-Existing Content Memory
-+
-Search Intent Analysis
+Note: Gemma 4 returns responses with `thought` parts — code picks the last non-`thought` part. Gemma 4 does NOT support `systemInstruction` parameter; system prompt is merged into user prompt.
 
 ---
 
-# Agent Hierarchy
+## Agent Hierarchy
 
-CEO Agent
+CEO Agent (Orchestrator)
 
-├── Research Agent
-├── Competitor Agent
-├── SERP Gap Agent
-├── Planning Agent
-├── Writer Agent
-├── Humanizer Agent
-├── Reviewer Agent
-├── SEO Agent
-├── Image Agent
-├── Internal Link Agent
-├── Content Memory Agent
-├── Topical Authority Agent
-├── Blogger Agent
-├── Adsterra Agent
-├── Indexing Agent
-├── Analytics Agent
-├── Revenue Agent
-├── Decay Agent
-└── Business Brain Agent
-
----
-
-# CEO Agent
-
-Responsibilities:
-
-* Coordinate all agents
-* Manage workflow
-* Approve publishing
-* Schedule tasks
-* Handle failures
-
-Acts as system orchestrator.
+├── Research Agent        — Topic discovery & deep research
+├── Competitor Agent      — Competitor content analysis
+├── SERP Gap Agent        — Missing opportunities in SERP
+├── Planning Agent        — Article blueprint
+├── Writer Agent          — Draft generation (2000+ words)
+├── Humanizer Agent       — Remove AI fingerprints
+├── Reviewer Agent        — Quality validation (pass >= 85)
+├── SEO Agent             — Meta tags, schema, OG, Twitter, canonical
+├── Image Agent           — Visual planning with Picsum
+├── Internal Link Agent   — Contextual internal linking
+├── Content Memory Agent  — Duplicate prevention
+├── Topical Authority     — Topic cluster management
+├── Blogger Agent         — Publish to Blogger API v3
+├── Adsterra Agent        — Inject ad scripts (hardcoded from dashboard)
+├── Indexing Agent        — Google Indexing API
+├── Analytics Agent       — Search Console data sync
+├── Revenue Agent         — Revenue tracking
+├── Decay Agent           — Detect traffic decline
+└── Business Brain        — Strategic recommendations
 
 ---
 
-# Research Agent
+## CEO Agent
 
-Responsibilities:
-
-* Discover topics
-* Discover long-tail opportunities
-* Analyze trends
-* Analyze topic demand
-* Generate research packages
-
-Output:
-
-research-package.json
+Coordinates all agents via the 13-step pipeline (runFullPipeline). Handles failures with retry. Scheduled 5x daily via node-cron.
 
 ---
 
-# Competitor Agent
+## Research Agent
 
-Responsibilities:
+Discover topics with search volume, difficulty, intent. Save to `topics` and `research_packages` tables.
 
-Analyze ranking competitors.
-
-Identify:
-
-* Missing topics
-* Weak coverage
-* Content opportunities
-* SERP structure
-
-Output:
-
-competitor-analysis.json
+Output: research-package.json
 
 ---
 
-# SERP Gap Agent
+## Competitor Agent
 
-Responsibilities:
+Analyze ranking competitors — find weak coverage, content gaps, SERP structures.
 
-Analyze competitor content.
-
-Find:
-
-* Missing questions
-* Missing sections
-* Missing examples
-* Untapped opportunities
-
-Output:
-
-serp-gap-report.json
+Output: competitor-analysis.json
 
 ---
 
-# Planning Agent
+## SERP Gap Agent
 
-Responsibilities:
+Analyze competitor content — find missing questions, sections, examples, untapped subtopics.
 
-Build article blueprint.
-
-Determine:
-
-* Search intent
-* Audience
-* Outline
-* Entities
-* FAQs
-* Content flow
-
-Output:
-
-article-plan.json
+Output: serp-gap-report.json
 
 ---
 
-# Writer Agent
+## Planning Agent
 
-Responsibilities:
+Build article blueprint with intent, audience, outline, key entities, FAQs, word count range (2000+).
 
-Generate article draft.
-
-Rules:
-
-* Natural writing
-* Intent driven
-* Useful content
-* Human readable
-* Markdown output
-
-Never:
-
-* Force keywords
-* Force word counts
-* Generate fluff
-
-Output:
-
-article.md
+Output: article-plan.json
 
 ---
 
-# Humanizer Agent
+## Writer Agent
 
-Responsibilities:
+Generate article draft in Markdown. Natural, intent-driven, human-readable. Each H2 section >= 100-150 words.
 
-Reduce AI fingerprints.
-
-Tasks:
-
-* Vary sentence structure
-* Improve transitions
-* Add examples
-* Add context
-* Remove repetition
-
-Output:
-
-humanized-article.md
+Output: article.md
 
 ---
 
-# Reviewer Agent
+## Humanizer Agent
 
-Responsibilities:
+Reduce AI fingerprints — vary sentence structure, improve transitions, add examples, remove repetition, fix awkward phrasing.
 
-Validate content quality.
-
-Checks:
-
-* Grammar
-* Readability
-* Completeness
-* SEO quality
-* Duplicate detection
-
-Minimum score:
-
-85/100
-
-If failed:
-
-Return to Humanizer Agent.
+Output: humanized-article.md
 
 ---
 
-# SEO Agent
+## Reviewer Agent
 
-Responsibilities:
+Validate content quality on grammar, readability, completeness, seoQuality, originality, readerValue.
+
+Minimum pass: 85/100. If failed, the draft raw content is used as fallback (the review is logged but does not block publishing).
+
+---
+
+## SEO Agent
 
 Generate:
 
-* Meta Title
-* Meta Description
-* URL Slug
-* Canonical URL
-* Open Graph Tags
-* Twitter Tags
+* metaTitle (max 60 chars)
+* metaDescription (max 160 chars)
+* canonicalUrl
+* openGraph: { title, description, image }
+* twitterCard: { title, description }
+* schemaMarkup: BlogPosting, FAQPage, etc.
 
-Generate Schema:
-
-* BlogPosting
-* FAQPage
-* BreadcrumbList
-* Organization
-
-Output:
-
-seo-package.json
+Note: All OG/Twitter/canonical tags are now injected into the published article by the Blogger Agent (previously only og:image was injected).
 
 ---
 
-# Image Agent
+## Image Agent
 
-Responsibilities:
+Plan images with SEO-friendly filenames, alt text, captions. Uses Picsum Photos (placeholders). Outputs `<figure>` with `<img loading="lazy">`.
 
-Generate:
-
-* Featured Image
-* Open Graph Image
-* Alt Text
-* Image Caption
-* SEO Filename
-
-Example:
-
-install-docker-ubuntu.webp
-
-Never:
-
-image1.webp
-
-Output:
-
-images/
+Currently uses `https://picsum.photos` — replace with a real stock photo API for production.
 
 ---
 
-# Internal Link Agent
+## Internal Link Agent
 
-Responsibilities:
+Connect articles automatically — find relevant articles, generate contextual links, improve crawlability.
 
-Connect articles automatically.
-
-Tasks:
-
-* Find relevant articles
-* Generate contextual links
-* Improve crawlability
-
-Output:
-
-internal-links.json
+Output: internal-links.json
 
 ---
 
-# Content Memory Agent
+## Content Memory Agent
 
-Responsibilities:
+Store every article. Before creating content, search memory, detect overlap, prevent duplication.
 
-Store every article.
-
-Before creating content:
-
-* Search memory
-* Detect overlap
-* Prevent duplication
-* Suggest internal links
-
-Output:
-
-content-memory.json
+Output: content-memory.json
 
 ---
 
-# Topical Authority Agent
+## Topical Authority Agent
 
-Responsibilities:
+Maintain topic clusters systematically. Never create random content. Fill cluster gaps in order.
 
-Maintain topic clusters.
-
-Example:
-
-Docker
-
-* Installation
-* Compose
-* Swarm
-* Networking
-* Security
-* Monitoring
-* VPS Deployment
-
-System must fill clusters systematically.
-
-Never create random content.
-
-Output:
-
-topic-clusters.json
+Output: topic-clusters.json
 
 ---
 
-# Blogger Agent
+## Blogger Agent
 
-Responsibilities:
+Automatic Blogger publishing via Google Blogger API v3.
 
-Automatic Blogger publishing.
+Features: Create, update, delete posts, apply labels, publish HTML.
 
-Features:
-
-* Create post
-* Update post
-* Delete post
-* Schedule post
-* Upload images
-* Apply labels
-* Publish HTML
-
-API:
-
-Google Blogger API v3
-
-Output:
-
-{
-postId: "",
-url: "",
-status: "published"
-}
+Content formatting:
+- Markdown → HTML conversion (headings, lists, tables, blockquotes, code blocks)
+- GitHub README-style CSS
+- Copy button on every code block
+- Adsterra script injection at optimal positions
+- SEO metadata injection (meta, OG, Twitter, canonical, JSON-LD schema)
 
 ---
 
-# Adsterra Agent
+## Adsterra Agent
 
-Responsibilities:
+Manage monetization. Scripts are **hardcoded from the Adsterra dashboard** (not generated from API) because the Adsterra API only returns serving keys for popunder placements, not for all formats.
 
-Manage monetization.
+Supported placements (from dashboard Get Code):
+- **Popunder** — appended at end of article
+- **Social Bar** — prepended at top of article
+- **Native Banner** — injected before FAQ section
+- **Display Banner (728x90)** — injected after first paragraph
 
-Tasks:
+Each placement has a unique serving ID on `pl*.effectivecpmnetwork.com` — cannot share a single publisher key across formats.
 
-* Inject Adsterra scripts
-* Manage ad placement
-* Optimize ad positions
-* Monitor ad performance
-
-Supported:
-
-* Social Bar
-* Native Banner
-* Display Banner
-* Popunder (optional)
-
-Locations:
-
-* After first H2
-* Mid article
-* Before FAQ
-* End of article
-
-Output:
-
-ad-layout.json
+Serving IDs: SocialBar=29751140, Popunder=29751138, Native=29751139, Display key=`04e50b86336e1cbd7fd18562f36ee01c`
 
 ---
 
-# Indexing Agent
+## Indexing Agent
 
-Responsibilities:
+Submit URL to Google Indexing API after publishing. Logs to `indexing_logs` table.
 
-Google indexing automation.
-
-Tasks:
-
-* Submit URL
-* Verify indexing
-* Retry failures
-
-Integration:
-
-Google Search Console
-
-Output:
-
-indexing-report.json
+Note: Requires Indexing API enabled in Google Cloud Console + refresh token scoped to both `webmasters.readonly` and `indexing`.
 
 ---
 
-# Analytics Agent
+## Analytics Agent
 
-Responsibilities:
+Sync Google Search Console data (clicks, impressions, CTR, position) per article per date.
 
-Collect metrics.
-
-Sources:
-
-* Search Console
-* Blogger
-* Adsterra
-
-Metrics:
-
-* Clicks
-* Impressions
-* CTR
-* Position
-* Revenue
-
-Output:
-
-analytics-report.json
+Note: `getSiteUrl()` now prefers `blogspot.com` sites to avoid querying the wrong Search Console property.
 
 ---
 
-# Revenue Agent
+## Revenue Agent
 
-Responsibilities:
-
-Track earnings.
-
-Metrics:
-
-* Daily Revenue
-* Weekly Revenue
-* Monthly Revenue
-* RPM
-* Revenue Per Article
-
-Output:
-
-revenue-report.json
+Track earnings — daily revenue, RPM, revenue per article. Saves to `revenues` table.
 
 ---
 
-# Decay Agent
+## Decay Agent
 
-Responsibilities:
-
-Detect declining articles.
-
-Signals:
-
-* Traffic drop
-* Ranking drop
-* CTR drop
-
-Actions:
-
-* Update content
-* Expand content
-* Add FAQs
-* Re-submit indexing
-
-Output:
-
-content-refresh-queue.json
+Detect articles with >20% month-over-month traffic decline. Queue them for content refresh.
 
 ---
 
-# Business Brain Agent
+## Business Brain Agent
 
-Responsibilities:
+Make strategic decisions — which niches generate revenue, which topics rank fastest, which clusters perform best.
 
-Make strategic decisions.
-
-Questions:
-
-* Which niches generate revenue?
-* Which topics rank fastest?
-* Which clusters perform best?
-* Which articles should be updated?
-
-Output:
-
-business-recommendations.json
+Output: business-recommendations.json
 
 ---
 
-# Publishing Workflow
+## Publishing Workflow (13-Step Pipeline)
 
-Research
+Research → Competitor Analysis → SERP Gap Analysis → Planning → Writing → Humanization → Review → SEO → Image Planning → Adsterra Injection → Blogger Publishing → Indexing
 
-↓
-
-Competitor Analysis
-
-↓
-
-SERP Gap Analysis
-
-↓
-
-Planning
-
-↓
-
-Writing
-
-↓
-
-Humanization
-
-↓
-
-Review
-
-↓
-
-SEO Optimization
-
-↓
-
-Image Generation
-
-↓
-
-Internal Linking
-
-↓
-
-Blogger Publishing
-
-↓
-
-Adsterra Injection
-
-↓
-
-Indexing
-
-↓
-
-Analytics Collection
-
-↓
-
-Revenue Analysis
-
-↓
-
-Learning
+Analysis & Revenue syncs run separately.
 
 ---
 
-# Database
+## Scheduler
 
-PostgreSQL
+Full pipeline runs **5x daily** (every ~5 hours):
+
+| Time | Activity |
+|------|----------|
+| 00:00 | Full pipeline |
+| 05:00 | Full pipeline |
+| 10:00 | Full pipeline |
+| 15:00 | Full pipeline |
+| 20:00 | Full pipeline |
+
+Legacy per-step scheduling removed — only full pipeline jobs.
+
+---
+
+## Dashboard
+
+A self-contained monitoring dashboard is served at `http://<host>:3000/`.
+
+Tabs:
+- **Overview** — stat cards (articles, topics, impressions, revenue), pipeline outcomes chart, recent runs
+- **Articles** — table of all articles with SEO, analytics, revenue, direct links to Blogger
+- **Analytics** — daily impressions/clicks chart + top articles by traffic
+- **Revenue** — daily revenue chart + totals
+- **Pipeline** — 50 most recent agent runs
+- **Queues** — BullMQ queue status (waiting, active, completed, failed)
+
+Data sourced from PostgreSQL via `/api/dashboard/*` endpoints.
+
+---
+
+## Bot Clicker
+
+`bot-clicker.ts` — Puppeteer script to simulate human visits on published posts:
+- Fetches all post links from blog homepage dynamically
+- Visits each post 3 times with random UA/viewport
+- Concurrent tab processing
+- Stealth patches (`webdriver` spoof, `navigator` overrides)
+- Bezier mouse clicks, non-linear scroll
+- Color-coded per-visit logs and summary report
+
+Run from local Windows: `npx ts-node bot-clicker.ts`
+
+---
+
+## Database
+
+PostgreSQL 16 with Drizzle ORM.
 
 Tables:
-
-topics
-
-articles
-
-article_versions
-
-research_packages
-
-competitor_analysis
-
-seo_packages
-
-internal_links
-
-topic_clusters
-
-indexing_logs
-
-analytics
-
-revenues
-
-publishing_logs
-
-error_logs
-
-agent_runs
+- topics
+- articles
+- article_versions
+- research_packages
+- competitor_analysis
+- seo_packages
+- internal_links
+- topic_clusters
+- cluster_topics
+- indexing_logs
+- analytics
+- revenues
+- publishing_logs
+- error_logs
+- agent_runs
 
 ---
 
-# Queue System
+## Queue System
 
-BullMQ
+BullMQ with Redis. 11 queues:
 
-Queues:
-
-research
-
-planning
-
-writing
-
-review
-
-seo
-
-publishing
-
-indexing
-
-analytics
-
-revenue
-
-learning
+research, planning, writing, review, seo, publishing, indexing, analytics, revenue, learning, pipeline
 
 ---
 
-# Scheduler
+## Docker Services
 
-Daily:
-
-00:00 Topic Discovery
-
-01:00 Research
-
-02:00 Competitor Analysis
-
-03:00 Planning
-
-04:00 Writing
-
-05:00 Humanization
-
-06:00 Review
-
-07:00 SEO
-
-08:00 Image Generation
-
-09:00 Publish
-
-10:00 Indexing
-
-11:00 Analytics Sync
-
-12:00 Revenue Sync
+| Service | Image | Function |
+|---------|-------|----------|
+| app | custom (Node 20) | Express server + API + Dashboard |
+| worker | custom (Node 20) | BullMQ workers |
+| scheduler | custom (Node 20) | Cron scheduler (5x daily) |
+| postgres | postgres:16-alpine | Database |
+| redis | redis:7-alpine | Queue backend |
+| grafana | grafana/grafana | Monitoring (port 3001) |
+| prometheus | prom/prometheus | Metrics (port 9090) |
+| nginx | nginx:alpine | Reverse proxy (port 80) |
 
 ---
 
-# Docker Services
+## Environment Variables
 
-app
-
-worker
-
-scheduler
-
-postgres
-
-redis
-
-grafana
-
-prometheus
-
-nginx
-
----
-
-# Environment Variables
-
+```
 NODE_ENV=production
-
 PORT=3000
-
 DATABASE_URL=
-
 REDIS_URL=
-
 GOOGLE_AI_API_KEY=
-
-GOOGLE_AI_MODEL=gemma-3-31b-it
-
+GOOGLE_AI_MODEL=gemma-4-26b-a4b-it
 BLOGGER_BLOG_ID=
-
 BLOGGER_CLIENT_ID=
-
 BLOGGER_CLIENT_SECRET=
-
 BLOGGER_REFRESH_TOKEN=
-
 SEARCH_CONSOLE_CLIENT_ID=
-
 SEARCH_CONSOLE_CLIENT_SECRET=
-
 SEARCH_CONSOLE_REFRESH_TOKEN=
-
-ADSTERRA_PUBLISHER_ID=
-
-ADSTERRA_SOCIAL_BAR_ID=
-
-ADSTERRA_NATIVE_ID=
-
-ADSTERRA_BANNER_ID=
-
+ADSTERRA_API_TOKEN=
 LOG_LEVEL=info
+```
 
 ---
 
-# Project Structure
+## Project Structure
 
+```
 src/
-
-agents/
-ceo/
-research/
-competitor/
-serp-gap/
-planning/
-writer/
-humanizer/
-reviewer/
-seo/
-image/
-internal-link/
-content-memory/
-topical-authority/
-blogger/
-adsterra/
-indexing/
-analytics/
-revenue/
-decay/
-business-brain/
-
-providers/
-google-ai/
-blogger/
-
-services/
-search-console/
-scheduler/
-queue/
-storage/
-
-database/
-
-workers/
-
-prompts/
-
-config/
-
+├── agents/              # 20 AI agents (one folder each)
+│   ├── base.ts          # BaseAgent class
+│   ├── index.ts         # Agent exports
+│   ├── adsterra/        # Hardcoded ad scripts
+│   ├── analytics/       # Search Console sync
+│   ├── blogger/         # Publishing + SEO meta + content formatting
+│   ├── business-brain/  # Strategic recommendations
+│   ├── ceo/             # Orchestrator
+│   ├── competitor/      # Competitor analysis
+│   ├── content-memory/  # Duplicate detection
+│   ├── decay/           # Traffic decline detection
+│   ├── humanizer/       # AI fingerprint removal
+│   ├── image/           # Image planning (Picsum)
+│   ├── indexing/        # Google Indexing API
+│   ├── internal-link/   # Internal linking
+│   ├── planner/         # Article blueprint
+│   ├── research/        # Topic discovery
+│   ├── revenue/         # Revenue tracking
+│   ├── reviewer/        # Quality check
+│   ├── seo/             # Meta + schema generation
+│   ├── serp-gap/        # SERP gap analysis
+│   ├── topical/         # Topic clusters
+│   └── writer/          # Draft generation
+├── config/              # Env + logger
+├── database/            # Schema, connection, migrations
+├── providers/           # Google AI + Blogger API clients
+│   ├── google-ai/       # Gemma 4 client w/ retry + thought extraction
+│   ├── blogger/         # Blogger API v3 client
+├── public/              # Dashboard frontend (index.html)
+├── routes/              # Express routes
+│   └── dashboard.ts     # Dashboard API endpoints
+├── services/            # Queue, Scheduler, Search Console
+│   ├── queue/           # BullMQ setup
+│   ├── scheduler/       # Cron (5x daily)
+│   └── search-console/  # Analytics + Indexing API
+├── workers/             # Worker entry + orchestrator
+│   ├── index.ts         # Worker setup (11 queues)
+│   └── orchestrator.ts  # Agent dispatch
+├── trigger.ts           # Manual pipeline trigger
+├── index.ts             # Express server + dashboard
+├── test.ts              # Integration test
+├── utils/               # JSON helpers, image utils
 docker/
+├── Dockerfile
+├── docker-compose.yml
+├── nginx.conf
+└── prometheus.yml
+bot-clicker.ts           # Puppeteer visit simulator
+```
 
 ---
 
-# Success Metrics
+## Success Metrics
 
 Primary:
-
 * Indexed Pages
 * Organic Clicks
 * Organic Traffic
 * Adsterra Revenue
 
 Secondary:
-
 * Topic Authority
 * Ranking Growth
 * CTR
 * Revenue Per Article
 
-The system's purpose is not to generate articles.
-
-The system's purpose is to operate an autonomous Blogger publishing business that continuously grows organic traffic and Adsterra revenue.
+The system's purpose is not to generate articles. The system's purpose is to operate an autonomous Blogger publishing business that continuously grows organic traffic and Adsterra revenue.
