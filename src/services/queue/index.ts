@@ -19,6 +19,7 @@ export enum QueueName {
   ANALYTICS = 'analytics',
   REVENUE = 'revenue',
   LEARNING = 'learning',
+  PIPELINE = 'pipeline',
 }
 
 const queues = new Map<QueueName, Queue>();

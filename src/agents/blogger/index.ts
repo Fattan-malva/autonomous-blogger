@@ -17,7 +17,7 @@ export class BloggerAgent extends BaseAgent {
     switch (action) {
       case 'publish':
         return this.publishToBlogger(
-          articleId as number,
+          articleId as number | undefined,
           content as string,
           title as string,
           labels as string[],
@@ -39,7 +39,7 @@ export class BloggerAgent extends BaseAgent {
   }
 
   private async publishToBlogger(
-    articleId: number,
+    articleId: number | undefined,
     content: string,
     title: string,
     labels?: string[],
@@ -63,18 +63,20 @@ export class BloggerAgent extends BaseAgent {
 
     const result = await createPost(bloggerPost);
 
-    await db.execute(sql`
-      UPDATE articles
-      SET blogger_post_id = ${result.id}, blogger_url = ${result.url}, status = 'published', published_at = NOW()
-      WHERE id = ${articleId}
-    `);
+    if (articleId) {
+      await db.execute(sql`
+        UPDATE articles
+        SET blogger_post_id = ${result.id}, blogger_url = ${result.url}, status = 'published', published_at = NOW()
+        WHERE id = ${articleId}
+      `);
 
-    await db.execute(sql`
-      INSERT INTO publishing_logs (article_id, action, status, response)
-      VALUES (${articleId}, 'publish', 'success', ${JSON.stringify(result)}::jsonb)
-    `);
+      await db.execute(sql`
+        INSERT INTO publishing_logs (article_id, action, status, response)
+        VALUES (${articleId}, 'publish', 'success', ${JSON.stringify(result)}::jsonb)
+      `);
+    }
 
-    logger.info('Article published to Blogger', { articleId, postId: result.id });
+    logger.info('Article published to Blogger', { articleId: articleId || null, postId: result.id });
 
     return {
       success: true,

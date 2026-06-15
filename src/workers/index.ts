@@ -1,6 +1,7 @@
 import { createWorker, QueueName } from '../services/queue';
 import { logger } from '../config/logger';
 import { Orchestrator } from './orchestrator';
+import { runFullPipeline } from '../services/pipeline';
 import { Job } from 'bullmq';
 
 const orchestrator = new Orchestrator();
@@ -46,6 +47,15 @@ async function startWorkers(): Promise<void> {
 
   createWorker(QueueName.LEARNING, async (job: Job) => {
     await orchestrator.handleLearning(job.data);
+  }, 1);
+
+  createWorker(QueueName.PIPELINE, async () => {
+    const result = await runFullPipeline();
+    if (result.success) {
+      logger.info('Full pipeline completed', { steps: result.stepsCompleted, url: result.url });
+    } else {
+      logger.error('Full pipeline failed', { steps: result.stepsCompleted, error: result.error });
+    }
   }, 1);
 
   logger.info('All workers started');

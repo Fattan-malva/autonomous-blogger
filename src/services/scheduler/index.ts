@@ -8,6 +8,10 @@ export class Scheduler {
   start(): void {
     logger.info('Starting scheduler...');
 
+    // Full pipeline run once daily at 00:00
+    this.schedule('00 00 * * *', 'pipeline', 'full-pipeline', {});
+
+    // Individual jobs (legacy / per-step)
     this.schedule('00 00 * * *', 'research', 'discover-topics', {});     // 00:00 - Topic Discovery
     this.schedule('00 01 * * *', 'research', 'deep-research', {});       // 01:00 - Research
     this.schedule('00 02 * * *', 'research', 'competitor-analysis', {}); // 02:00 - Competitor Analysis
