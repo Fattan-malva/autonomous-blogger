@@ -8,6 +8,9 @@ type ContentStatus = {
   posted: boolean;
   postedAt?: string;
   bloggerUrl?: string;
+  indexed: boolean;
+  indexedAt?: string;
+  indexError?: string;
   notes?: string;
 };
 
@@ -60,7 +63,7 @@ function save(): void {
 }
 
 export function getStatus(slug: string): ContentStatus {
-  return load().statuses[slug] || { posted: false };
+  return load().statuses[slug] || { posted: false, indexed: false };
 }
 
 export function getAllStatuses(): Record<string, ContentStatus> {
@@ -69,10 +72,16 @@ export function getAllStatuses(): Record<string, ContentStatus> {
 
 export function setStatus(slug: string, status: Partial<ContentStatus>): ContentStatus {
   const store = load();
-  const current = store.statuses[slug] || { posted: false };
+  const current = store.statuses[slug] || { posted: false, indexed: false };
   store.statuses[slug] = { ...current, ...status };
   save();
   return store.statuses[slug];
+}
+
+export function removeStatus(slug: string): void {
+  const store = load();
+  delete store.statuses[slug];
+  save();
 }
 
 export function getSchedulerConfig(): Store['scheduler'] {

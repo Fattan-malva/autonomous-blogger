@@ -16,7 +16,7 @@ header .status .dot { width: 8px; height: 8px; border-radius: 50%; display: inli
 header .status .dot.online { background: #3fb950; }
 header .status .dot.offline { background: #f85149; }
 nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 0 24px; display: flex; gap: 0; overflow-x: auto; }
-nav a { color: #8b949e; text-decoration: none; padding: 12px 20px; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; cursor: pointer; }
+nav a { color: #8b949e; text-decoration: none; padding: 12px 20px; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 nav a:hover { color: #e6edf3; }
 nav a.active { color: #58a6ff; border-bottom-color: #58a6ff; }
 main { padding: 24px; max-width: 1400px; margin: 0 auto; }
@@ -45,6 +45,8 @@ tr:hover td { background: #1c2128; }
 .status-badge.running { background: rgba(88,166,255,.15); color: #58a6ff; }
 .status-badge.cancelled { background: rgba(139,148,158,.15); color: #8b949e; }
 .status-badge.generating { background: rgba(88,166,255,.15); color: #58a6ff; }
+.status-badge.indexed { background: rgba(88,166,255,.15); color: #58a6ff; }
+.status-badge.index-failed { background: rgba(248,81,73,.15); color: #f85149; }
 a { color: #58a6ff; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .chart-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
@@ -57,11 +59,17 @@ a:hover { text-decoration: underline; }
 .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 .btn-danger { background: #da3633; border-color: #f85149; color: #fff; }
 .btn-danger:hover { background: #f85149; }
+.btn-accent { background: #1f6feb; border-color: #388bfd; color: #fff; }
+.btn-accent:hover { background: #388bfd; }
+.btn-accent:disabled { opacity: .5; cursor: not-allowed; }
 .btn-sm { padding: 4px 10px; font-size: 11px; }
 .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.icon { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+.icon-sm { width: 12px; height: 12px; }
 .mb16 { margin-bottom: 16px; }
 .mt16 { margin-top: 16px; }
 .mr8 { margin-right: 8px; }
+.ml8 { margin-left: 8px; }
 .generating-progress { display: flex; align-items: center; gap: 12px; padding: 16px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 16px; }
 .spinner { width: 20px; height: 20px; border: 2px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -76,13 +84,15 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
 .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 90%; max-width: 900px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #30363d; }
 .modal-header h3 { font-size: 16px; font-weight: 600; }
-.modal-close { background: none; border: none; color: #8b949e; font-size: 24px; cursor: pointer; padding: 0 4px; }
+.modal-close { background: none; border: none; color: #8b949e; font-size: 24px; cursor: pointer; padding: 0 4px; display: flex; align-items: center; }
 .modal-close:hover { color: #e6edf3; }
 .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
 .modal-body iframe { width: 100%; height: 70vh; border: none; border-radius: 8px; background: #fff; }
 .modal-footer { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid #30363d; justify-content: flex-end; }
-.copy-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity .3s; }
-.copy-toast.show { opacity: 1; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast-success { background: #238636; color: #fff; }
+.toast-error { background: #da3633; color: #fff; }
 @media (max-width: 768px) {
   .chart-row { grid-template-columns: 1fr; }
   .cards { grid-template-columns: repeat(2, 1fr); }
@@ -97,13 +107,34 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
   <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Loading...</span></div>
 </header>
 <nav id="nav">
-  <a class="active" onclick="switchTab('overview')">Overview</a>
-  <a onclick="switchTab('content')">Content</a>
-  <a onclick="switchTab('generate')">Generate</a>
-  <a onclick="switchTab('analytics')">Analytics</a>
-  <a onclick="switchTab('revenue')">Revenue</a>
-  <a onclick="switchTab('runs')">Pipeline</a>
-  <a onclick="switchTab('queues')">Queues</a>
+  <a class="active" onclick="switchTab('overview')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75H.75A.75.75 0 0 1 0 6.25Zm6.5 0A.75.75 0 0 1 7.25 1h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75ZM0 9.75A.75.75 0 0 1 .75 9h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75Zm6.5 0a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75Z"/></svg>
+    Overview
+  </a>
+  <a onclick="switchTab('content')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M2 1.75C2 .784 2.784 0 3.75 0h5.5c.142 0 .278.028.4.083l.17.084a.75.75 0 0 1 .42.508l.007.041.003.06.003.072V2.5h2.128a.75.75 0 0 1 .53.22l1.5 1.5a.75.75 0 0 1 .22.53v9.5A1.75 1.75 0 0 1 12.25 16h-8.5A1.75 1.75 0 0 1 2 14.25Zm5.5-1h-3.75a.25.25 0 0 0-.25.25v13.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25V5.5h-1.5a1.75 1.75 0 0 1-1.75-1.75V.75Zm0 .207v1.793c0 .138.112.25.25.25h1.793ZM10 9.75a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 0 1.5 0v-1.5a.75.75 0 0 0-.75-.75Zm-2.5.75a.75.75 0 0 1 1.5 0v1.5a.75.75 0 0 1-1.5 0zm-2 .75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 1.5 0Z"/></svg>
+    Content
+  </a>
+  <a onclick="switchTab('generate')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M5.455 2.634c.246-.287.654-.337.953-.116l5.858 4.327c.31.23.31.704 0 .933l-5.858 4.327c-.299.221-.707.17-.953-.116a.641.641 0 0 1-.13-.412V3.046c0-.15.048-.298.13-.412Z"/></svg>
+    Generate
+  </a>
+  <a onclick="switchTab('analytics')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25ZM1.75 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25ZM4 12a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 4 12Zm3 0a.75.75 0 0 1 .75-.75H12a.75.75 0 0 1 0 1.5H7.75A.75.75 0 0 1 7 12ZM4 8a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 4 8Zm3 0a.75.75 0 0 1 .75-.75H12a.75.75 0 0 1 0 1.5H7.75A.75.75 0 0 1 7 8Z"/></svg>
+    Analytics
+  </a>
+  <a onclick="switchTab('revenue')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M.5 1.75A.75.75 0 0 1 1.25 1h13.5a.75.75 0 0 1 0 1.5H1.25a.75.75 0 0 1-.75-.75ZM0 5.25A1.75 1.75 0 0 1 1.75 3.5h12.5c.966 0 1.75.784 1.75 1.75v6a1.75 1.75 0 0 1-1.75 1.75H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v6c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-6a.25.25 0 0 0-.25-.25ZM8 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></svg>
+    Revenue
+  </a>
+  <a onclick="switchTab('runs')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M2 2.75C2 1.784 2.784 1 3.75 1h8.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25ZM4 5.75A.75.75 0 0 1 4.75 5h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 5.75Zm0 3.5a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Z"/></svg>
+    Pipeline
+  </a>
+  <a onclick="switchTab('queues')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M6.25 1.75a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm2.5 0a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm2.5 0a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5ZM3.5 4.75a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3.5-1a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3.5-1a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-7 3.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Zm0 3.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Zm0 3.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Z"/></svg>
+    Queues
+  </a>
 </nav>
 <main>
   <!-- OVERVIEW -->
@@ -120,11 +151,14 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
   <div id="section-content" class="section">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <h2 style="margin-bottom:0">Generated Content</h2>
-      <button class="btn btn-primary" onclick="loadContent()">↻ Refresh</button>
+      <button class="btn" onclick="loadContent()">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M1.705 8.005a6.295 6.295 0 0 1 10.483-4.528l.072.063 1.72-1.72a.75.75 0 0 1 1.27.527v4.25a.75.75 0 0 1-.75.75h-4.25a.75.75 0 0 1-.53-1.28l1.586-1.585-.06-.052A4.795 4.795 0 0 0 3.205 8.005a.75.75 0 0 1-1.5 0Zm11.09 0a.75.75 0 0 1 1.5 0 6.295 6.295 0 0 1-10.49 4.534l-.078-.069-1.715 1.715a.75.75 0 0 1-1.27-.527v-4.25a.75.75 0 0 1 .75-.75h4.25a.75.75 0 0 1 .53 1.28L5.187 11.5l.06.053A4.795 4.795 0 0 0 11.795 8.005Z"/></svg>
+        Refresh
+      </button>
     </div>
     <div style="overflow-x:auto">
       <table><thead><tr>
-        <th>Title</th><th>Words</th><th>Status</th><th>Modified</th><th>Actions</th>
+        <th>Title</th><th>Words</th><th>Status</th><th>Index</th><th>Modified</th><th>Actions</th>
       </tr></thead><tbody id="contentBody"></tbody></table>
     </div>
   </div>
@@ -141,8 +175,14 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
     </div>
     <div id="generateStatus"></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
-      <button class="btn btn-primary" id="genBtn" onclick="triggerGenerate()">⚡ Generate Now</button>
-      <button class="btn" onclick="document.getElementById('logOutput').style.display=document.getElementById('logOutput').style.display==='none'?'block':'none'">📋 Toggle Log</button>
+      <button class="btn btn-primary" id="genBtn" onclick="triggerGenerate()">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M5.455 2.634c.246-.287.654-.337.953-.116l5.858 4.327c.31.23.31.704 0 .933l-5.858 4.327c-.299.221-.707.17-.953-.116a.641.641 0 0 1-.13-.412V3.046c0-.15.048-.298.13-.412Z"/></svg>
+        Generate Now
+      </button>
+      <button class="btn" onclick="document.getElementById('logOutput').style.display=document.getElementById('logOutput').style.display==='none'?'block':'none'">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M2 2.75C2 1.784 2.784 1 3.75 1h8.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25ZM4 5.75A.75.75 0 0 1 4.75 5h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 4 5.75Zm0 3.5a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Z"/></svg>
+        Toggle Log
+      </button>
     </div>
     <pre class="log-output" id="logOutput" style="display:none">No logs yet.</pre>
 
@@ -161,7 +201,10 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
         <label>Interval (minutes)</label>
         <input type="number" id="schedInterval" min="30" max="1440" value="144" style="width:80px" />
       </div>
-      <button class="btn btn-primary" onclick="saveScheduler()">Save</button>
+      <button class="btn btn-primary" onclick="saveScheduler()">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16H3.75A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073H3.75ZM8 5.75a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5V6.5a.75.75 0 0 1 .75-.75Z"/></svg>
+        Save
+      </button>
     </div>
   </div>
 
@@ -193,24 +236,28 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
   <div class="modal">
     <div class="modal-header">
       <h3 id="previewTitle">Preview</h3>
-      <button class="modal-close" onclick="closePreview()">&times;</button>
+      <button class="modal-close" onclick="closePreview()">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+      </button>
     </div>
     <div class="modal-body"><iframe id="previewFrame" srcdoc=""></iframe></div>
     <div class="modal-footer">
-      <button class="btn btn-primary btn-sm" onclick="copyPreview()">📋 Copy HTML</button>
+      <button class="btn btn-primary btn-sm" onclick="copyPreview()">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+        Copy HTML
+      </button>
       <button class="btn btn-sm" onclick="closePreview()">Close</button>
     </div>
   </div>
 </div>
 
 <!-- Toast -->
-<div class="copy-toast" id="copyToast">Copied!</div>
+<div class="toast" id="toast"></div>
 
 <script>
 let dailyChart, statusChart, analyticsChart, revenueChart;
 let contentCache = [];
 
-// ===== TABS =====
 function switchTab(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
@@ -236,6 +283,13 @@ function fmtDate(d) { return d ? new Date(d).toLocaleDateString() : '-'; }
 function fmtDateTime(d) { return d ? new Date(d).toLocaleString() : '-'; }
 function fmtNum(n) { return (n ?? 0).toLocaleString(); }
 function fmtMoney(n) { return '$' + (parseFloat(n || 0)).toFixed(4); }
+
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + (type === 'error' ? 'toast-error' : 'toast-success');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
 
 // ===== OVERVIEW =====
 async function loadOverview() {
@@ -277,19 +331,55 @@ async function loadContent() {
     const files = await api('/api/content/files');
     contentCache = files;
     document.getElementById('contentBody').innerHTML = files.length
-      ? files.map(f => `<tr>
-          <td><strong>${esc(f.title)}</strong><br><span style="color:#8b949e;font-size:11px">${esc(f.slug)}</span></td>
-          <td>${fmtNum(f.words)}</td>
-          <td><span class="status-badge ${f.status}">${f.status}</span>${f.bloggerUrl ? '<br><a href="'+esc(f.bloggerUrl)+'" target="_blank" style="font-size:11px">View Post</a>' : ''}</td>
-          <td style="font-size:12px">${fmtDateTime(f.modifiedAt)}</td>
-          <td><div class="btn-group">
-            <button class="btn btn-sm" onclick="previewContent('${esc(f.slug)}')">👁 Preview</button>
-            <button class="btn btn-sm" onclick="copyContent('${esc(f.slug)}')">📋 Copy</button>
-            ${f.status === 'draft' ? `<button class="btn btn-sm btn-primary" onclick="markPosted('${esc(f.slug)}')">✓ Posted</button>` : `<button class="btn btn-sm" onclick="markDraft('${esc(f.slug)}')">↩ Draft</button>`}
-          </div></td>
-        </tr>`).join('')
-      : '<tr><td colspan="5" class="empty">No content yet. Go to Generate tab to create content.</td></tr>';
-  } catch (e) { document.getElementById('contentBody').innerHTML = '<tr><td colspan="5" class="empty">Error loading content</td></tr>'; }
+      ? files.map(f => {
+          let indexBadge = '<span class="status-badge draft">pending</span>';
+          if (f.indexed && f.status === 'posted') indexBadge = '<span class="status-badge indexed">indexed</span>';
+          else if (f.status === 'posted') {
+            const errHint = f.indexError ? ' title="' + esc(f.indexError) + '"' : '';
+            indexBadge = '<span class="status-badge index-failed"' + errHint + '>failed</span>';
+          }
+
+          const indexBtn = (f.status === 'posted' && !f.indexed)
+            ? `<button class="btn btn-sm btn-accent" onclick="submitIndex('${esc(f.slug)}')">
+                <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M1.5 1.75A.75.75 0 0 1 2.25 1h3.5a.75.75 0 0 1 0 1.5h-2.5v2.5a.75.75 0 0 1-1.5 0Zm11.5 7a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75H8.75a.75.75 0 0 1 0-1.5h2.5v-2.5a.75.75 0 0 1 .75-.75ZM4.22 13.28a.75.75 0 0 1 0-1.06l9-9a.75.75 0 0 1 1.06 1.06l-9 9a.75.75 0 0 1-1.06 0Z"/></svg>
+                Submit to Index
+              </button>` : '';
+
+          return `<tr>
+            <td><strong>${esc(f.title)}</strong><br><span style="color:#8b949e;font-size:11px">${esc(f.slug)}</span></td>
+            <td>${fmtNum(f.words)}</td>
+            <td><span class="status-badge ${f.status}">${f.status}</span>${f.bloggerUrl ? '<br><a href="'+esc(f.bloggerUrl)+'" target="_blank" style="font-size:11px">View Post</a>' : ''}</td>
+            <td>${indexBadge}</td>
+            <td style="font-size:12px">${fmtDateTime(f.modifiedAt)}</td>
+            <td><div class="btn-group">
+              <button class="btn btn-sm" onclick="previewContent('${esc(f.slug)}')">
+                <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 2c4.5 0 6.5 3 7 4-.5 1-2.5 4-7 4s-6.5-3-7-4c.5-1 2.5-4 7-4Zm0 1.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
+                Preview
+              </button>
+              <button class="btn btn-sm" onclick="copyContent('${esc(f.slug)}')">
+                <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                Copy
+              </button>
+              ${f.status === 'draft'
+                ? `<button class="btn btn-sm btn-primary" onclick="markPostedPrompt('${esc(f.slug)}')">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
+                    Mark Posted
+                  </button>`
+                : `<button class="btn btn-sm" onclick="markDraft('${esc(f.slug)}')">
+                    <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M1.22 4.22a.75.75 0 0 1 1.06 0L6 7.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L7.06 9l3.72 3.72a.75.75 0 1 1-1.06 1.06L6 10.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L4.94 9 1.22 5.28a.75.75 0 0 1 0-1.06Z"/></svg>
+                    Unpost
+                  </button>`
+              }
+              ${indexBtn}
+              <button class="btn btn-sm btn-danger" onclick="removeContent('${esc(f.slug)}')">
+                <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M6.5 1.75a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25V3h-3ZM4.995 3.5h-.098H3.75a.75.75 0 0 0 0 1.5h.25l.816 8.997A1.75 1.75 0 0 0 6.56 15h2.88a1.75 1.75 0 0 0 1.744-1.503l.816-8.997h.25a.75.75 0 0 0 0-1.5h-1.148h-.098H4.995Z"/></svg>
+                Remove
+              </button>
+            </div></td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="6" class="empty">No content yet. Go to Generate tab to create content.</td></tr>';
+  } catch (e) { document.getElementById('contentBody').innerHTML = '<tr><td colspan="6" class="empty">Error loading content</td></tr>'; }
 }
 
 // Preview
@@ -300,7 +390,7 @@ async function previewContent(slug) {
     document.getElementById('previewFrame').srcdoc = data.html;
     document.getElementById('previewModal').classList.add('active');
     document.getElementById('previewModal').dataset.slug = slug;
-  } catch (e) { alert('Failed to load preview'); }
+  } catch (e) { showToast('Failed to load preview', 'error'); }
 }
 
 function closePreview() {
@@ -316,12 +406,8 @@ async function copyContent(slug) {
   try {
     const data = await api('/api/content/files/' + encodeURIComponent(slug));
     await navigator.clipboard.writeText(data.html);
-    const toast = document.getElementById('copyToast');
-    toast.textContent = 'Copied!';
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2000);
+    showToast('HTML copied to clipboard', 'success');
   } catch {
-    // Fallback for older browsers
     const data = await api('/api/content/files/' + encodeURIComponent(slug));
     const ta = document.createElement('textarea');
     ta.value = data.html;
@@ -329,17 +415,21 @@ async function copyContent(slug) {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    const toast = document.getElementById('copyToast');
-    toast.textContent = 'Copied!';
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2000);
+    showToast('HTML copied to clipboard', 'success');
   }
 }
 
-async function markPosted(slug) {
+function markPostedPrompt(slug) {
+  const url = prompt('Enter the Blogger URL for this post:');
+  if (!url || !url.trim()) return;
+  markPosted(slug, url.trim());
+}
+
+async function markPosted(slug, bloggerUrl) {
   await api('/api/content/files/' + encodeURIComponent(slug) + '/status', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ posted: true })
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ posted: true, bloggerUrl })
   });
+  showToast('Marked as posted', 'success');
   loadContent();
 }
 
@@ -347,6 +437,38 @@ async function markDraft(slug) {
   await api('/api/content/files/' + encodeURIComponent(slug) + '/status', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ posted: false })
   });
+  showToast('Marked as draft', 'success');
+  loadContent();
+}
+
+async function removeContent(slug) {
+  if (!confirm('Delete "' + slug + '"? This cannot be undone.')) return;
+  try {
+    await api('/api/content/files/' + encodeURIComponent(slug), { method: 'DELETE' });
+    showToast('Content removed', 'success');
+    loadContent();
+  } catch (e) {
+    showToast('Failed to remove: ' + e.message, 'error');
+  }
+}
+
+async function submitIndex(slug) {
+  const btn = event?.target?.closest?.('button');
+  if (btn) btn.disabled = true;
+
+  try {
+    const result = await api('/api/content/files/' + encodeURIComponent(slug) + '/index', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }
+    });
+    if (result.success) {
+      showToast('URL submitted to Google Indexing API', 'success');
+    } else {
+      showToast('Indexing failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (e) {
+    showToast('Indexing error: ' + e.message, 'error');
+  }
+  if (btn) btn.disabled = false;
   loadContent();
 }
 
@@ -357,12 +479,12 @@ async function loadGenerateTab() {
     const btn = document.getElementById('genBtn');
     if (status.generating) {
       btn.disabled = true;
-      btn.textContent = '⏳ Generating...';
+      btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:1.5px"></span> Generating...';
       document.getElementById('generateStatus').innerHTML = '<div class="generating-progress"><div class="spinner"></div><span>Content generation in progress...</span></div>';
       setTimeout(loadGenerateTab, 3000);
     } else {
       btn.disabled = false;
-      btn.textContent = '⚡ Generate Now';
+      btn.innerHTML = '<svg class="icon" viewBox="0 0 16 16"><path d="M5.455 2.634c.246-.287.654-.337.953-.116l5.858 4.327c.31.23.31.704 0 .933l-5.858 4.327c-.299.221-.707.17-.953-.116a.641.641 0 0 1-.13-.412V3.046c0-.15.048-.298.13-.412Z"/></svg> Generate Now';
       document.getElementById('generateStatus').innerHTML = '';
     }
   } catch {}
@@ -378,7 +500,7 @@ async function loadGenerateTab() {
 async function triggerGenerate() {
   const btn = document.getElementById('genBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Generating...';
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:1.5px"></span> Generating...';
   document.getElementById('generateStatus').innerHTML = '<div class="generating-progress"><div class="spinner"></div><span>Content generation in progress...</span></div>';
   const log = document.getElementById('logOutput');
   log.style.display = 'block';
@@ -388,17 +510,17 @@ async function triggerGenerate() {
     const result = await api('/api/content/generate', { method: 'POST' });
     log.textContent = result.output;
     if (result.success) {
-      document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:8px;color:#3fb950">✅ Generation completed successfully!</div>';
+      document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:8px;color:#3fb950">Generation completed successfully</div>';
     } else {
-      document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#f85149">❌ Generation failed. Check log below.</div>';
+      document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#f85149">Generation failed. Check log below.</div>';
     }
   } catch (e) {
     log.textContent = 'Error: ' + e.message;
-    document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#f85149">❌ ' + esc(e.message) + '</div>';
+    document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#f85149">' + esc(e.message) + '</div>';
   }
 
   btn.disabled = false;
-  btn.textContent = '⚡ Generate Now';
+  btn.innerHTML = '<svg class="icon" viewBox="0 0 16 16"><path d="M5.455 2.634c.246-.287.654-.337.953-.116l5.858 4.327c.31.23.31.704 0 .933l-5.858 4.327c-.299.221-.707.17-.953-.116a.641.641 0 0 1-.13-.412V3.046c0-.15.048-.298.13-.412Z"/></svg> Generate Now';
   loadContent();
   loadGenerateTab();
 }
@@ -420,7 +542,7 @@ async function saveScheduler() {
     intervalMinutes: parseInt(document.getElementById('schedInterval').value) || 144,
   };
   const result = await api('/api/content/scheduler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  alert('Scheduler saved! ' + (result.enabled ? 'Enabled, every ' + result.intervalMinutes + ' min' : 'Disabled'));
+  showToast('Scheduler saved! ' + (result.enabled ? 'Enabled, every ' + result.intervalMinutes + ' min' : 'Disabled'), 'success');
 }
 
 // ===== ANALYTICS =====

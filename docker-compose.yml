@@ -24,53 +24,6 @@ services:
     networks:
       - blogger-net
 
-  worker:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    command: ["node", "dist/workers/index.js"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgres://blogger:blogger_password@postgres:5432/blogger_seo
-      REDIS_URL: redis://redis:6379
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    volumes:
-      - ./images:/app/images
-      - ./result:/app/result
-      - ./data:/app/data
-    restart: unless-stopped
-    networks:
-      - blogger-net
-
-  scheduler:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    command: ["node", "dist/services/scheduler/run.js"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgres://blogger:blogger_password@postgres:5432/blogger_seo
-      REDIS_URL: redis://redis:6379
-    env_file:
-      - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    volumes:
-      - ./result:/app/result
-      - ./data:/app/data
-    restart: unless-stopped
-    networks:
-      - blogger-net
-
   postgres:
     image: postgres:16-alpine
     environment:

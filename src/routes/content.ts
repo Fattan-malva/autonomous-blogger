@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
+import { readdirSync, readFileSync, existsSync, statSync, unlinkSync } from 'fs';
 import { resolve, join } from 'path';
 import { exec } from 'child_process';
-import { getStatus, setStatus, getAllStatuses, getSchedulerConfig, updateSchedulerConfig } from '../services/content-store';
+import { getStatus, setStatus, getAllStatuses, removeStatus, getSchedulerConfig, updateSchedulerConfig } from '../services/content-store';
+import { submitUrlForIndexing } from '../services/search-console';
 
 const router = Router();
 const RESULT_DIR = resolve(__dirname, '../../result');
@@ -49,6 +50,9 @@ router.get('/files', (_req: Request, res: Response) => {
         status: status.posted ? 'posted' : 'draft',
         postedAt: status.postedAt || null,
         bloggerUrl: status.bloggerUrl || null,
+        indexed: status.indexed || false,
+        indexedAt: status.indexedAt || null,
+        indexError: status.indexError || null,
       };
     });
 
@@ -118,6 +122,46 @@ router.post('/generate', (req: Request, res: Response) => {
 // Get generation status
 router.get('/generate/status', (_req: Request, res: Response) => {
   res.json({ generating });
+});
+
+// Delete content file + status
+router.delete('/files/:slug', (req: Request, res: Response) => {
+  try {
+    const slug = req.params.slug.replace(/\.\.\//g, '');
+    const filepath = join(RESULT_DIR, `${slug}.html`);
+    if (existsSync(filepath)) unlinkSync(filepath);
+    removeStatus(slug);
+    res.json({ success: true, slug });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Submit URL to Google Indexing API
+router.post('/files/:slug/index', async (req: Request, res: Response) => {
+  try {
+    const slug = req.params.slug.replace(/\.\.\//g, '');
+    const status = getStatus(slug);
+    const bloggerUrl = req.body.bloggerUrl || status.bloggerUrl;
+
+    if (!bloggerUrl) {
+      return res.status(400).json({ error: 'No bloggerUrl provided. Mark as posted first.' });
+    }
+
+    const success = await submitUrlForIndexing(bloggerUrl);
+
+    if (success) {
+      setStatus(slug, { indexed: true, indexedAt: new Date().toISOString(), indexError: undefined });
+      res.json({ success: true, slug, indexed: true });
+    } else {
+      setStatus(slug, { indexed: false, indexError: 'Indexing API returned failure' });
+      res.status(502).json({ success: false, slug, error: 'Indexing API returned failure. Cek log app untuk detail.' });
+    }
+  } catch (error: any) {
+    const msg = error.message || 'Unknown error';
+    setStatus(req.params.slug, { indexed: false, indexError: msg });
+    res.status(502).json({ success: false, error: msg });
+  }
 });
 
 // Scheduler config
