@@ -19,11 +19,22 @@ function escapeXml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function extractSearchTerms(text: string): string {
+  const cleaned = text
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .slice(0, 4)
+    .join(' ');
+  return cleaned || 'technology';
+}
+
 export function imageUrlFromKeyword(keyword: string, purpose: string): string {
-  const seed = slugify(keyword || purpose || 'technology');
+  const terms = extractSearchTerms(keyword || purpose || 'technology');
   const width = purpose === 'featured' ? 1200 : 800;
   const height = purpose === 'featured' ? 630 : 450;
-  return `https://picsum.photos/seed/${seed}/${width}/${height}`;
+  const text = encodeURIComponent(terms.split(' ').slice(0, 5).join(' '));
+  return `https://placehold.co/${width}x${height}/2563eb/FFFFFF?text=${text}&font=raleway`;
 }
 
 export function imageToHtml(image: ImagePlan): string {

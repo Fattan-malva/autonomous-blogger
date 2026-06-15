@@ -10,6 +10,7 @@
     "worker": "ts-node src/workers/index.ts",
     "scheduler": "ts-node src/services/scheduler/run.ts",
     "trigger": "node dist/trigger.js",
+    "generate": "ts-node src/generate-content.ts",
     "test": "ts-node src/test.ts",
     "migrate": "ts-node src/database/migrate.ts",
     "lint": "eslint src/**/*.ts",
