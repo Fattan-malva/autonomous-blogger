@@ -23,6 +23,12 @@ import { db } from '../database/connection';
 import { agentRuns } from '../database/schema';
 import { eq } from 'drizzle-orm';
 
+const STEP_DELAY_MS = 4000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export class Orchestrator {
   private ceo: CEOAgent;
   private research: ResearchAgent;
@@ -78,7 +84,9 @@ export class Orchestrator {
       }
 
       if (data.keyword && data.topicId) {
+        await sleep(STEP_DELAY_MS);
         await this.competitor.run({ action: 'analyze', topicId: data.topicId, keyword: data.keyword });
+        await sleep(STEP_DELAY_MS);
         await this.serpGap.run({ action: 'find-gaps', keyword: data.keyword });
       }
     } finally {
@@ -111,12 +119,14 @@ export class Orchestrator {
       });
 
       if (writeResult.success) {
+        await sleep(STEP_DELAY_MS);
         const humanizeResult = await this.humanizer.run({
           action: 'humanize',
           content: writeResult.data?.content,
         });
 
         if (humanizeResult.success) {
+          await sleep(STEP_DELAY_MS);
           const reviewResult = await this.reviewer.run({
             action: 'review',
             content: humanizeResult.data?.humanizedContent,
@@ -157,6 +167,7 @@ export class Orchestrator {
         keyword: data.keyword,
       });
 
+      await sleep(STEP_DELAY_MS);
       await this.image.run({
         action: 'plan-images',
         content: data.content,
@@ -175,6 +186,7 @@ export class Orchestrator {
         articleContent: data.content,
       });
 
+      await sleep(STEP_DELAY_MS);
       await this.internalLink.run({
         action: 'find-links',
         articleId: data.articleId,
@@ -182,6 +194,7 @@ export class Orchestrator {
         articleTitle: data.title,
       });
 
+      await sleep(STEP_DELAY_MS);
       await this.blogger.run({
         action: 'publish',
         articleId: data.articleId,
@@ -236,6 +249,7 @@ export class Orchestrator {
     const runId = await this.logRun('Learning', data);
     try {
       const decayResult = await this.decay.run({ action: 'detect-decay' });
+      await sleep(STEP_DELAY_MS);
       await this.businessBrain.run({ action: 'analyze' });
 
       if (decayResult.success && (decayResult.data?.decayingCount as number) > 0) {
