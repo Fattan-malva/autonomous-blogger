@@ -1,18 +1,6 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
-
-const REVIEWER_SYSTEM_PROMPT = `You are a Reviewer Agent. Validate content quality before publishing.
-
-Check:
-- Grammar and spelling
-- Readability and flow
-- Completeness against the outline
-- SEO quality and keyword usage
-- Duplicate or repetitive content
-- Factual accuracy
-- Value to the reader
-
-Score each category out of 100. Minimum overall score: 85/100`;
+import { generateContent } from '../../providers/google-ai';
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class ReviewerAgent extends BaseAgent {
   constructor() {
@@ -31,31 +19,22 @@ export class ReviewerAgent extends BaseAgent {
   }
 
   private async reviewContent(content: string, articlePlan?: string): Promise<AgentOutput> {
-    const prompt = `Review the following content for quality and completeness:
+    const prompt = jsonPrompt(`Review this content for quality.
 
 ${articlePlan ? `Original plan: ${JSON.stringify(articlePlan)}` : ''}
 
-Content to review:
-${content}
+Content:
+${content.substring(0, 3000)}
 
-Provide scores (0-100) for:
-1. Grammar and spelling
-2. Readability and flow
-3. Completeness against intent
-4. SEO quality
-5. Originality
-6. Reader value
+Score each 0-100: grammar, readability, completeness, seoQuality, originality, readerValue
+Also list issues found (string[]).
+Minimum pass: overallScore >= 85.
 
-Also note any issues found and whether the content passes (minimum 85/100 overall).
+Return JSON: { scores: { grammar, readability, completeness, seoQuality, originality, readerValue }, issues: string[], overallScore: number, passed: boolean }`);
 
-Return as structured JSON with: scores, issues[], overallScore, passed (boolean)`;
+    const result = await generateContent(prompt);
+    const review = safeParseJson(result, { scores: {}, issues: [], overallScore: 0, passed: false })!;
 
-    const result = await generateWithSystemPrompt(REVIEWER_SYSTEM_PROMPT, prompt);
-    const review = JSON.parse(result);
-
-    return {
-      success: true,
-      data: review,
-    };
+    return { success: true, data: review };
   }
 }

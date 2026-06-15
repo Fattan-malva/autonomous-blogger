@@ -9,6 +9,7 @@
     "dev": "ts-node src/index.ts",
     "worker": "ts-node src/workers/index.ts",
     "scheduler": "ts-node src/services/scheduler/index.ts",
+    "trigger": "node dist/trigger.js",
     "test": "ts-node src/test.ts",
     "migrate": "ts-node src/database/migrate.ts",
     "lint": "eslint src/**/*.ts",

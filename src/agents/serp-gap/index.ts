@@ -1,15 +1,6 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
-
-const SERP_GAP_SYSTEM_PROMPT = `You are a SERP Gap Analysis Agent. Find content gaps and untapped opportunities by analyzing what competitors are missing.
-
-Look for:
-- Missing questions
-- Missing sections
-- Missing examples and case studies
-- Missing data and statistics
-- Missing visual elements
-- Untapped long-tail opportunities`;
+import { generateContent } from '../../providers/google-ai';
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class SERPGapAgent extends BaseAgent {
   constructor() {
@@ -28,22 +19,22 @@ export class SERPGapAgent extends BaseAgent {
   }
 
   private async findGaps(keyword: string, competitorData?: string): Promise<AgentOutput> {
-    const prompt = `Analyze the SERP for "${keyword}" and identify content gaps.
+    const prompt = jsonPrompt(`Analyze content gaps in the SERP for "${keyword}".
 
 ${competitorData ? `Competitor data: ${JSON.stringify(competitorData)}` : ''}
 
-Identify:
-1. Questions that top results fail to answer
-2. Sections missing from competitor content
-3. Examples or case studies that would add value
-4. Data points or statistics that are missing
-5. Format opportunities (videos, infographics, tutorials)
-6. Related subtopics not covered
+Identify what competitors are missing:
+- missingQuestions: string[]
+- missingSections: string[]
+- missingExamples: string[]
+- missingData: string[]
+- formatOpportunities: string[]
+- untappedSubtopics: string[]
 
-Return as structured JSON.`;
+Return a JSON object`);
 
-    const result = await generateWithSystemPrompt(SERP_GAP_SYSTEM_PROMPT, prompt);
-    const gaps = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const gaps = safeParseJson(result, {});
 
     return { success: true, data: { gaps } };
   }

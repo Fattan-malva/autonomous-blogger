@@ -1,17 +1,9 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 import { db } from '../../database/connection';
 import { articles, internalLinks } from '../../database/schema';
 import { and, ne, eq } from 'drizzle-orm';
-
-const LINKING_SYSTEM_PROMPT = `You are an Internal Link Agent. Connect articles intelligently to improve SEO and user experience.
-
-Guidelines:
-- Only link contextually relevant articles
-- Use natural, descriptive anchor text
-- Link to cornerstone content when possible
-- Avoid over-linking (max 3-5 internal links per article)
-- Prioritize articles that support and enhance the current content`;
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class InternalLinkAgent extends BaseAgent {
   constructor() {
@@ -59,32 +51,31 @@ export class InternalLinkAgent extends BaseAgent {
       slug: a.slug,
     }));
 
-    const prompt = `Find contextual internal linking opportunities for this article.
+    const prompt = jsonPrompt(`Find contextual internal linking opportunities.
 
-Current article title: "${articleTitle}"
-Current article content: ${articleContent.substring(0, 2000)}
+Current article: "${articleTitle}"
+${articleContent.substring(0, 1500)}
 
-Available articles to link to:
+Available articles:
 ${JSON.stringify(candidateArticles, null, 2)}
 
-For each relevant link, provide:
-1. Source text context (the sentence where the link fits naturally)
-2. Target article ID
-3. Anchor text to use
-4. Reason for the link
+For each relevant link provide:
+- sourceText: string (sentence where link fits)
+- targetArticleId: number
+- anchorText: string
 
-Return up to 5 links. Return as JSON array.`;
+Return a JSON array (max 5 links)`);
 
-    const result = await generateWithSystemPrompt(LINKING_SYSTEM_PROMPT, prompt);
-    const linkSuggestions = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const linkSuggestions = safeParseJson<Array<Record<string, unknown>>>(result, [])!;
 
     const insertedLinks = [];
     for (const link of linkSuggestions) {
       const inserted = await db.insert(internalLinks).values({
         sourceArticleId: articleId,
-        targetArticleId: link.targetArticleId,
-        anchorText: link.anchorText,
-        context: link.context || link.sourceText,
+        targetArticleId: link.targetArticleId as number,
+        anchorText: link.anchorText as string,
+        context: (link.context || link.sourceText) as string,
       }).returning();
       insertedLinks.push(inserted[0]);
     }

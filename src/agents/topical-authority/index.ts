@@ -1,13 +1,8 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 import { db } from '../../database/connection';
-import { topicClusters } from '../../database/schema';
 import { sql } from 'drizzle-orm';
-
-const TOPICAL_SYSTEM_PROMPT = `You are a Topical Authority Agent. Maintain and expand topic clusters strategically.
-
-Goal: Build comprehensive topic clusters that establish authoritative coverage.
-Each cluster should have a pillar topic with supporting articles that cover every subtopic systematically.`;
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class TopicalAuthorityAgent extends BaseAgent {
   constructor() {
@@ -48,20 +43,18 @@ export class TopicalAuthorityAgent extends BaseAgent {
   }
 
   private async suggestCoverage(clusterName: string): Promise<AgentOutput> {
-    const prompt = `Analyze the topic cluster "${clusterName}" and suggest missing subtopics.
-
-Current coverage: List what subtopics should exist in a comprehensive "${clusterName}" cluster.
+    const prompt = jsonPrompt(`Analyze the topic cluster "${clusterName}" and suggest missing subtopics.
 
 For each subtopic suggest:
-1. Subtopic name
-2. Priority (1-5)
-3. Why it's important for topical authority
-4. Example article title
+- subtopic: string
+- priority: number (1-5)
+- reason: string
+- exampleTitle: string
 
-Return as JSON array sorted by priority.`;
+Return a JSON array sorted by priority`);
 
-    const result = await generateWithSystemPrompt(TOPICAL_SYSTEM_PROMPT, prompt);
-    const suggestions = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const suggestions = safeParseJson<Array<Record<string, unknown>>>(result, []);
 
     return { success: true, data: { clusterName, suggestions } };
   }

@@ -1,19 +1,10 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 import { db } from '../../database/connection';
 import { revenues, analytics, articles, topics } from '../../database/schema';
 import { eq, gte, desc, sql, and } from 'drizzle-orm';
 import { logger } from '../../config/logger';
-
-const BUSINESS_BRAIN_SYSTEM_PROMPT = `You are the Business Brain Agent. Make strategic decisions for the autonomous publishing business.
-
-Analyze performance data and answer:
-- Which niches generate the most revenue?
-- Which topics rank fastest?
-- Which clusters perform best?
-- Which articles need updates?
-- What new topics should be explored?
-- What strategic shifts should be made?`;
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class BusinessBrainAgent extends BaseAgent {
   constructor() {
@@ -88,22 +79,22 @@ export class BusinessBrainAgent extends BaseAgent {
     const analysis = await this.analyzeBusiness();
     const data = analysis.data as Record<string, unknown>;
 
-    const prompt = `Analyze this business data and provide strategic recommendations.
+    const prompt = jsonPrompt(`Analyze this business data and provide strategic recommendations.
 
 Top articles: ${JSON.stringify(data.topArticles)}
 Cluster performance: ${JSON.stringify(data.clusterPerformance)}
 
-Provide recommendations for:
-1. Which clusters to expand
-2. Which topics to create next
-3. Which articles to update
-4. Strategic opportunities
-5. Revenue optimization suggestions
+Provide:
+- expandClusters: string[]
+- nextTopics: string[]
+- articlesToUpdate: { id: number, reason: string }[]
+- strategicOpportunities: string[]
+- revenueOptimization: string[]
 
-Return as structured JSON with priority rankings.`;
+Return a JSON object`);
 
-    const result = await generateWithSystemPrompt(BUSINESS_BRAIN_SYSTEM_PROMPT, prompt);
-    const recommendations = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const recommendations = safeParseJson(result, {});
 
     return {
       success: true,

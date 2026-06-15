@@ -1,16 +1,6 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
-
-const SEO_SYSTEM_PROMPT = `You are an SEO Agent. Generate comprehensive SEO metadata and schema markup for articles.
-
-Generate:
-- Meta title (max 60 chars)
-- Meta description (max 160 chars)
-- URL slug
-- Canonical URL
-- Open Graph tags
-- Twitter Card tags
-- Schema.org markup (BlogPosting, FAQPage, BreadcrumbList, Organization)`;
+import { generateContent } from '../../providers/google-ai';
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class SEOAgent extends BaseAgent {
   constructor() {
@@ -29,26 +19,24 @@ export class SEOAgent extends BaseAgent {
   }
 
   private async generateSEO(content: string, title: string, keyword: string): Promise<AgentOutput> {
-    const prompt = `Generate comprehensive SEO metadata for an article.
+    const prompt = jsonPrompt(`Generate SEO metadata for this article.
 
-Article title: "${title}"
-Target keyword: "${keyword}"
-Content preview: ${content.substring(0, 1000)}
+Title: "${title}"
+Keyword: "${keyword}"
+Content preview: ${content.substring(0, 1500)}
 
 Provide:
-1. Meta title (under 60 chars, include keyword naturally)
-2. Meta description (under 160 chars, compelling, include keyword)
-3. URL slug (SEO-friendly)
-4. Open Graph title and description
-5. Twitter Card title and description
-6. Complete schema.org markup (BlogPosting with FAQPage if FAQs exist)
-7. BreadcrumbList schema
-8. Organization schema
+- metaTitle: string (max 60 chars)
+- metaDescription: string (max 160 chars)
+- urlSlug: string
+- openGraph: { title: string, description: string }
+- twitterCard: { title: string, description: string }
+- schemaMarkup: { "@context": string, "@type": string, ... }
 
-Return as structured JSON.`;
+Return a JSON object`);
 
-    const result = await generateWithSystemPrompt(SEO_SYSTEM_PROMPT, prompt);
-    const seoData = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const seoData = safeParseJson(result, {});
 
     return { success: true, data: { seo: seoData } };
   }

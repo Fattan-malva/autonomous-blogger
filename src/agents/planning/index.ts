@@ -1,16 +1,6 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
-
-const PLANNING_SYSTEM_PROMPT = `You are a Planning Agent. Create detailed article blueprints based on research data.
-
-Determine:
-- Primary search intent
-- Target audience
-- Content structure and outline
-- Key entities to include
-- FAQ questions to answer
-- Content flow and narrative
-- Related internal linking opportunities`;
+import { generateContent } from '../../providers/google-ai';
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class PlanningAgent extends BaseAgent {
   constructor() {
@@ -39,27 +29,25 @@ export class PlanningAgent extends BaseAgent {
     competitorData?: string,
     serpGaps?: string
   ): Promise<AgentOutput> {
-    const prompt = `Create a detailed article blueprint for the keyword: "${keyword}"
+    const prompt = jsonPrompt(`Create a detailed article blueprint for: "${keyword}"
 
-Research data: ${researchData || 'Not provided'}
-Competitor data: ${competitorData || 'Not provided'}
-SERP gaps: ${serpGaps || 'Not provided'}
+Research: ${researchData || 'N/A'}
+Competitors: ${competitorData || 'N/A'}
+SERP gaps: ${serpGaps || 'N/A'}
 
 Provide:
-1. Exact search intent (informational/commercial/transactional)
-2. Target audience description
-3. Working title
-4. Detailed outline with H2 and H3 sections
-5. Key entities and concepts to explain
-6. FAQ questions (5-10)
-7. Content flow narrative
-8. Suggested word count range
-9. Key takeaways for reader
+- intent: string (informational/commercial/transactional)
+- targetAudience: string
+- title: string
+- outline: { heading: string, subheadings: string[] }[]
+- keyEntities: string[]
+- faqs: string[]
+- wordCountRange: { min: number, max: number }
 
-Return as structured JSON.`;
+Return a JSON object`);
 
-    const result = await generateWithSystemPrompt(PLANNING_SYSTEM_PROMPT, prompt);
-    const plan = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const plan = safeParseJson(result, {});
 
     return { success: true, data: { plan } };
   }

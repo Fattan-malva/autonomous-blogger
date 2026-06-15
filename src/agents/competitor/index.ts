@@ -1,16 +1,8 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 import { db } from '../../database/connection';
 import { sql } from 'drizzle-orm';
-
-const COMPETITOR_SYSTEM_PROMPT = `You are a Competitor Analysis Agent. Analyze ranking competitors to find content gaps and opportunities.
-
-Identify:
-- Top ranking competitors
-- Their content strengths and weaknesses
-- Missing topics they haven't covered
-- Weak coverage areas
-- SERP feature opportunities`;
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class CompetitorAgent extends BaseAgent {
   constructor() {
@@ -29,21 +21,21 @@ export class CompetitorAgent extends BaseAgent {
   }
 
   private async analyzeCompetitors(topicId: number, keyword: string): Promise<AgentOutput> {
-    const prompt = `Analyze the top 10 competitors ranking for the keyword: "${keyword}"
+    const prompt = jsonPrompt(`Analyze the top 10 competitors ranking for the keyword: "${keyword}"
 
 For each competitor provide:
-1. URL
-2. Title
-3. Estimated word count
-4. Content strengths
-5. Content weaknesses
-6. Missing subtopics
-7. SERP features they rank for
+- url: string
+- title: string
+- estimatedWordCount: number
+- contentStrengths: string[]
+- contentWeaknesses: string[]
+- missingSubtopics: string[]
+- serpFeatures: string[]
 
-Return as JSON array.`;
+Return a JSON array`);
 
-    const result = await generateWithSystemPrompt(COMPETITOR_SYSTEM_PROMPT, prompt);
-    const analysis = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const analysis = safeParseJson<Array<Record<string, unknown>>>(result, []);
 
     await db.execute(sql`
       INSERT INTO competitor_analysis (topic_id, data)

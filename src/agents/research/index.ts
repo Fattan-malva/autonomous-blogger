@@ -1,17 +1,9 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
+import { generateContent } from '../../providers/google-ai';
 import { db } from '../../database/connection';
 import { topics } from '../../database/schema';
 import { sql } from 'drizzle-orm';
-
-const RESEARCH_SYSTEM_PROMPT = `You are a Research Agent for an autonomous SEO blog. Your role is to discover profitable topics, analyze trends, and generate comprehensive research packages. Focus on:
-- Long-tail keyword opportunities
-- Search demand and trends
-- Topic profitability potential
-- User search intent
-- Content gap analysis
-
-Output structured JSON research data.`;
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class ResearchAgent extends BaseAgent {
   constructor() {
@@ -32,19 +24,23 @@ export class ResearchAgent extends BaseAgent {
   }
 
   private async discoverTopics(): Promise<AgentOutput> {
-    const prompt = `${RESEARCH_SYSTEM_PROMPT}
+    const prompt = jsonPrompt(`Research and discover 10 profitable long-tail topics for an SEO blog.
 
-Research and discover 10 profitable long-tail topics for an SEO blog. For each topic provide:
-1. Keyword
-2. Topic cluster
-3. Estimated search volume (1-10000)
-4. Difficulty (0-1)
-5. Search intent (informational/commercial/transactional/navigational)
+For each topic provide:
+- keyword: string
+- cluster: string (topic category like "blogging", "docker", "linux", "marketing", etc.)
+- searchVolume: number (1-10000)
+- difficulty: number (0-1)
+- intent: string ("informational" | "commercial" | "transactional" | "navigational")
 
-Return as JSON array with fields: keyword, cluster, searchVolume, difficulty, intent`;
+Return a JSON array`);
 
-    const result = await generateWithSystemPrompt(RESEARCH_SYSTEM_PROMPT, prompt);
-    const discovered = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const discovered = safeParseJson<Array<Record<string, unknown>>>(result, [])!;
+
+    if (discovered.length === 0) {
+      return { success: false, error: 'AI returned no valid topics' };
+    }
 
     for (const item of discovered) {
       await db.execute(sql`
@@ -58,21 +54,25 @@ Return as JSON array with fields: keyword, cluster, searchVolume, difficulty, in
   }
 
   private async deepResearch(topic: string, cluster?: string): Promise<AgentOutput> {
-    const prompt = `Perform deep research on the topic: "${topic}"${cluster ? ` in cluster: "${cluster}"` : ''}
+    const prompt = jsonPrompt(`Perform deep research on the topic: "${topic}"${cluster ? ` in cluster: "${cluster}"` : ''}
 
-Provide comprehensive research including:
-1. Search intent analysis
-2. Target audience
-3. Key questions people ask
-4. Competitor content summary
-5. Content opportunities
-6. Related long-tail keywords
-7. Entity relationships
+Provide comprehensive research with these fields:
+- searchIntent: string
+- targetAudience: string
+- keyQuestions: string[]
+- competitorSummary: string
+- contentOpportunities: string[]
+- relatedKeywords: string[]
+- entities: string[]
 
-Return as structured JSON.`;
+Return a JSON object`);
 
-    const result = await generateWithSystemPrompt(RESEARCH_SYSTEM_PROMPT, prompt);
-    const researchData = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const researchData = safeParseJson(result);
+
+    if (!researchData) {
+      return { success: false, error: 'AI returned no valid research data' };
+    }
 
     const topicResult = await db.execute(
       sql`SELECT id FROM topics WHERE keyword = ${topic} LIMIT 1`

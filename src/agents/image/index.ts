@@ -1,15 +1,6 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { generateWithSystemPrompt } from '../../providers/google-ai';
-
-const IMAGE_SYSTEM_PROMPT = `You are an Image Agent for an SEO blog. Plan and describe images for articles.
-
-Tasks:
-- Describe featured image concept
-- Describe Open Graph image concept
-- Generate detailed alt text
-- Generate image captions
-- Suggest SEO filenames
-- Describe image content in detail for AI image generation`;
+import { generateContent } from '../../providers/google-ai';
+import { jsonPrompt, safeParseJson } from '../../utils/json';
 
 export class ImageAgent extends BaseAgent {
   constructor() {
@@ -28,24 +19,24 @@ export class ImageAgent extends BaseAgent {
   }
 
   private async planImages(content: string, title: string, sections?: string): Promise<AgentOutput> {
-    const prompt = `Plan images for an article.
+    const prompt = jsonPrompt(`Plan images for this article.
 
 Title: "${title}"
-${sections ? `Key sections: ${sections}` : ''}
-Content preview: ${content.substring(0, 1500)}
+${sections ? `Sections: ${sections}` : ''}
+Content: ${content.substring(0, 2000)}
 
-For each image needed, provide:
-1. Image purpose (featured/in-article/infographic)
-2. Detailed visual description
-3. Alt text (descriptive, SEO-friendly)
-4. Image caption
-5. SEO filename (e.g., "what-is-docker-container.webp")
-6. Placement within article (which section)
+For each image provide:
+- purpose: string (featured/in-article/infographic)
+- description: string
+- altText: string
+- caption: string
+- filename: string (seo-friendly, e.g. "what-is-docker-container.webp")
+- placement: string
 
-Return as JSON array with: purpose, description, altText, caption, filename, placement`;
+Return a JSON array`);
 
-    const result = await generateWithSystemPrompt(IMAGE_SYSTEM_PROMPT, prompt);
-    const images = JSON.parse(result);
+    const result = await generateContent(prompt);
+    const images = safeParseJson<Array<Record<string, unknown>>>(result, []);
 
     return { success: true, data: { images } };
   }
