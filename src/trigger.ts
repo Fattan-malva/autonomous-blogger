@@ -16,6 +16,11 @@ import { AdsterraAgent } from './agents/adsterra';
 import { IndexingAgent } from './agents/indexing';
 
 const BORDER = '='.repeat(60);
+const STEP_DELAY_MS = 4000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function logStep(step: number, total: number, label: string) {
   console.log(`\n${BORDER}`);
@@ -44,6 +49,7 @@ async function main() {
   const researchAgent = new ResearchAgent();
   const discoverResult = await researchAgent.run({ action: 'discover-topics' });
   logDone(discoverResult.success, `Found ${(discoverResult.data?.discovered as number) || 0} topics`);
+  await sleep(STEP_DELAY_MS);
   if (!discoverResult.success) {
     console.error('  Error:', discoverResult.error);
     process.exit(1);
@@ -67,6 +73,7 @@ async function main() {
 
   const deepResult = await researchAgent.run({ action: 'deep-research', topic: firstTopic, cluster: firstCluster });
   logDone(deepResult.success, 'Research package generated');
+  await sleep(STEP_DELAY_MS);
 
   // ========================================
   // STEP 3: COMPETITOR ANALYSIS
@@ -76,6 +83,7 @@ async function main() {
   const competitorAgent = new CompetitorAgent();
   const compResult = await competitorAgent.run({ action: 'analyze', topicId: 1, keyword: firstTopic });
   logDone(compResult.success, `Analyzed ${(compResult.data?.competitors as Array<unknown>)?.length || 0} competitors`);
+  await sleep(STEP_DELAY_MS);
 
   // ========================================
   // STEP 4: SERP GAP ANALYSIS
@@ -85,6 +93,7 @@ async function main() {
   const serpGapAgent = new SERPGapAgent();
   const gapResult = await serpGapAgent.run({ action: 'find-gaps', keyword: firstTopic, competitorData: compResult.data });
   logDone(gapResult.success, 'Gap analysis complete');
+  await sleep(STEP_DELAY_MS);
 
   // ========================================
   // STEP 5: ARTICLE PLANNING
@@ -100,6 +109,7 @@ async function main() {
     serpGaps: gapResult.data,
   });
   logDone(planResult.success, 'Blueprint created: ' + ((planResult.data?.plan as Record<string, unknown>)?.title as string || ''));
+  await sleep(STEP_DELAY_MS);
 
   // ========================================
   // STEP 6: WRITING
@@ -134,6 +144,7 @@ async function main() {
   const humanizerAgent = new HumanizerAgent();
   const humanizeResult = await humanizerAgent.run({ action: 'humanize', content: rawContent });
   logDone(humanizeResult.success, 'Humanized');
+  await sleep(STEP_DELAY_MS);
   const humanizedContent = humanizeResult.data?.humanizedContent as string | undefined;
   const contentForReview = humanizedContent || rawContent;
 
@@ -152,6 +163,7 @@ async function main() {
   const passed = reviewData.passed as boolean;
   const score = reviewData.overallScore as number;
   logDone(passed, `Score: ${score || 'N/A'}/100 ${passed ? '(PASS)' : '(FAIL)'}`);
+  await sleep(STEP_DELAY_MS);
 
   const finalContent = passed ? contentForReview : rawContent;
   if (!passed) {
@@ -171,6 +183,7 @@ async function main() {
     keyword: firstTopic,
   });
   logDone(seoResult.success, 'SEO metadata generated');
+  await sleep(STEP_DELAY_MS);
 
   // ========================================
   // STEP 10: IMAGE PLANNING
@@ -184,6 +197,7 @@ async function main() {
     title: planTitle,
   });
   logDone(imageResult.success, `Planned ${(imageResult.data?.images as Array<unknown>)?.length || 0} images`);
+  await sleep(STEP_DELAY_MS);
 
   // ========================================
   // STEP 11: ADSTERRA LAYOUT
