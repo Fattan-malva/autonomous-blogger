@@ -1,0 +1,138 @@
+import { Router, Request, Response } from 'express';
+import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
+import { resolve, join } from 'path';
+import { exec } from 'child_process';
+import { getStatus, setStatus, getAllStatuses, getSchedulerConfig, updateSchedulerConfig } from '../services/content-store';
+
+const router = Router();
+const RESULT_DIR = resolve(__dirname, '../../result');
+
+function parseContentSlug(filename: string): string {
+  return filename.replace(/\.html$/, '');
+}
+
+function getWordCount(html: string): number {
+  const text = html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return text.split(/\s+/).length;
+}
+
+function extractTitle(html: string, filename: string): string {
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+  if (titleMatch) return titleMatch[1].replace(/\s*—\s*Fattan Dev\s*$/, '');
+  const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+  if (h1Match) return h1Match[1];
+  return filename.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// List all content files with status
+router.get('/files', (_req: Request, res: Response) => {
+  try {
+    if (!existsSync(RESULT_DIR)) {
+      return res.json([]);
+    }
+    const files = readdirSync(RESULT_DIR).filter(f => f.endsWith('.html'));
+    const statuses = getAllStatuses();
+
+    const contents = files.map(filename => {
+      const slug = parseContentSlug(filename);
+      const filepath = join(RESULT_DIR, filename);
+      const stat = statSync(filepath);
+      const html = readFileSync(filepath, 'utf-8');
+      const status = statuses[slug] || { posted: false };
+      return {
+        slug,
+        filename,
+        title: extractTitle(html, filename),
+        words: getWordCount(html),
+        size: stat.size,
+        modifiedAt: stat.mtime.toISOString(),
+        status: status.posted ? 'posted' : 'draft',
+        postedAt: status.postedAt || null,
+        bloggerUrl: status.bloggerUrl || null,
+      };
+    });
+
+    // Sort: drafts first, then by modified date desc
+    contents.sort((a, b) => {
+      if (a.status !== b.status) return a.status === 'draft' ? -1 : 1;
+      return new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime();
+    });
+
+    res.json(contents);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single file content
+router.get('/files/:slug', (req: Request, res: Response) => {
+  try {
+    const slug = req.params.slug.replace(/\.\.\//g, '');
+    const filepath = join(RESULT_DIR, `${slug}.html`);
+    if (!existsSync(filepath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    const html = readFileSync(filepath, 'utf-8');
+    res.json({ slug, html, title: extractTitle(html, slug) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update status (mark as posted / unpost)
+router.post('/files/:slug/status', (req: Request, res: Response) => {
+  try {
+    const slug = req.params.slug.replace(/\.\.\//g, '');
+    const { posted, bloggerUrl } = req.body;
+    const status = setStatus(slug, {
+      posted: !!posted,
+      postedAt: posted ? new Date().toISOString() : undefined,
+      bloggerUrl: bloggerUrl || undefined,
+    });
+    res.json({ slug, status: status.posted ? 'posted' : 'draft' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Trigger content generation
+let generating = false;
+router.post('/generate', (req: Request, res: Response) => {
+  if (generating) {
+    return res.status(429).json({ error: 'Already generating' });
+  }
+  generating = true;
+  const isProd = process.env.NODE_ENV === 'production';
+  const cmd = isProd
+    ? 'node dist/generate-content.js'
+    : (process.platform === 'win32' ? 'npx.cmd ts-node src/generate-content.ts' : 'npx ts-node src/generate-content.ts');
+  exec(cmd, { cwd: resolve(__dirname, '../..'), timeout: 300000 }, (error, stdout, stderr) => {
+    generating = false;
+    if (error) {
+      return res.json({ success: false, output: stdout + '\n' + stderr });
+    }
+    res.json({ success: true, output: stdout });
+  });
+});
+
+// Get generation status
+router.get('/generate/status', (_req: Request, res: Response) => {
+  res.json({ generating });
+});
+
+// Scheduler config
+router.get('/scheduler', (_req: Request, res: Response) => {
+  res.json(getSchedulerConfig());
+});
+
+router.post('/scheduler', (req: Request, res: Response) => {
+  const { enabled, perDay, intervalMinutes } = req.body;
+  const config = updateSchedulerConfig({
+    enabled: typeof enabled === 'boolean' ? enabled : undefined,
+    perDay: typeof perDay === 'number' ? perDay : undefined,
+    intervalMinutes: typeof intervalMinutes === 'number' ? intervalMinutes : undefined,
+  });
+  res.json(config);
+});
+
+export default router;

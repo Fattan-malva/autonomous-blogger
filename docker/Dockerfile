@@ -20,7 +20,7 @@ COPY --from=builder /app/dist/ ./dist/
 COPY public/ ./public/
 COPY --from=builder /app/images/ ./images/
 
-RUN mkdir -p logs
+RUN mkdir -p logs result data
 
 EXPOSE 3000
 

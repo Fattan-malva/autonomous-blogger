@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blogger SEO Dashboard</title>
+<title>Autonomous Blogger</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,7 +16,7 @@ header .status .dot { width: 8px; height: 8px; border-radius: 50%; display: inli
 header .status .dot.online { background: #3fb950; }
 header .status .dot.offline { background: #f85149; }
 nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 0 24px; display: flex; gap: 0; overflow-x: auto; }
-nav a { color: #8b949e; text-decoration: none; padding: 12px 20px; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; }
+nav a { color: #8b949e; text-decoration: none; padding: 12px 20px; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; cursor: pointer; }
 nav a:hover { color: #e6edf3; }
 nav a.active { color: #58a6ff; border-bottom-color: #58a6ff; }
 main { padding: 24px; max-width: 1400px; margin: 0 auto; }
@@ -38,225 +38,458 @@ th { text-align: left; padding: 10px 12px; background: #1c2128; color: #8b949e; 
 td { padding: 10px 12px; border-bottom: 1px solid #21262d; }
 tr:hover td { background: #1c2128; }
 .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
-.status-badge.published { background: rgba(63,185,80,.15); color: #3fb950; }
+.status-badge.published, .status-badge.posted { background: rgba(63,185,80,.15); color: #3fb950; }
 .status-badge.draft { background: rgba(210,153,34,.15); color: #d29922; }
-.status-badge.error { background: rgba(248,81,73,.15); color: #f85149; }
+.status-badge.error, .status-badge.failed { background: rgba(248,81,73,.15); color: #f85149; }
 .status-badge.success { background: rgba(63,185,80,.15); color: #3fb950; }
 .status-badge.running { background: rgba(88,166,255,.15); color: #58a6ff; }
-.status-badge.failed { background: rgba(248,81,73,.15); color: #f85149; }
 .status-badge.cancelled { background: rgba(139,148,158,.15); color: #8b949e; }
+.status-badge.generating { background: rgba(88,166,255,.15); color: #58a6ff; }
 a { color: #58a6ff; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .chart-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.empty { color: #8b949e; font-size: 14px; padding: 24px; text-align: center; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #e6edf3; font-size: 12px; cursor: pointer; transition: all .15s; }
+.btn:hover { background: #30363d; border-color: #8b949e; }
+.btn-primary { background: #238636; border-color: #2ea043; color: #fff; }
+.btn-primary:hover { background: #2ea043; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-danger { background: #da3633; border-color: #f85149; color: #fff; }
+.btn-danger:hover { background: #f85149; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
 .mb16 { margin-bottom: 16px; }
 .mt16 { margin-top: 16px; }
-.empty { color: #8b949e; font-size: 14px; padding: 24px; text-align: center; }
-.badge-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.mr8 { margin-right: 8px; }
+.generating-progress { display: flex; align-items: center; gap: 12px; padding: 16px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 16px; }
+.spinner { width: 20px; height: 20px; border: 2px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+pre.log-output { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; font-size: 12px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+input, select { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; color: #e6edf3; font-size: 13px; }
+input:focus, select:focus { outline: none; border-color: #58a6ff; }
+label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
+.form-row { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 999; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 90%; max-width: 900px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #30363d; }
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-close { background: none; border: none; color: #8b949e; font-size: 24px; cursor: pointer; padding: 0 4px; }
+.modal-close:hover { color: #e6edf3; }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+.modal-body iframe { width: 100%; height: 70vh; border: none; border-radius: 8px; background: #fff; }
+.modal-footer { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid #30363d; justify-content: flex-end; }
+.copy-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity .3s; }
+.copy-toast.show { opacity: 1; }
 @media (max-width: 768px) {
   .chart-row { grid-template-columns: 1fr; }
   .cards { grid-template-columns: repeat(2, 1fr); }
   header { flex-direction: column; gap: 8px; }
+  .form-row { flex-direction: column; }
 }
 </style>
 </head>
 <body>
 <header>
-  <h1>Blogger <span>SEO</span> Dashboard</h1>
+  <h1>Autonomous <span>Blogger</span></h1>
   <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Loading...</span></div>
 </header>
 <nav id="nav">
-  <a href="#overview" class="active" onclick="switchTab('overview')">Overview</a>
-  <a href="#articles" onclick="switchTab('articles')">Articles</a>
-  <a href="#analytics" onclick="switchTab('analytics')">Analytics</a>
-  <a href="#revenue" onclick="switchTab('revenue')">Revenue</a>
-  <a href="#runs" onclick="switchTab('runs')">Pipeline</a>
-  <a href="#queues" onclick="switchTab('queues')">Queues</a>
+  <a class="active" onclick="switchTab('overview')">Overview</a>
+  <a onclick="switchTab('content')">Content</a>
+  <a onclick="switchTab('generate')">Generate</a>
+  <a onclick="switchTab('analytics')">Analytics</a>
+  <a onclick="switchTab('revenue')">Revenue</a>
+  <a onclick="switchTab('runs')">Pipeline</a>
+  <a onclick="switchTab('queues')">Queues</a>
 </nav>
 <main>
+  <!-- OVERVIEW -->
   <div id="section-overview" class="section active">
     <div class="cards" id="summaryCards"></div>
     <div class="chart-row">
       <div class="chart-container"><canvas id="dailyChart"></canvas></div>
       <div class="chart-container"><canvas id="statusChart"></canvas></div>
     </div>
-    <div class="chart-container"><h2 style="margin-bottom:12px">Recent Pipeline Runs</h2><div id="recentRuns"></div></div>
+    <div class="chart-container"><h2 style="margin-bottom:12px">Recent Content</h2><div id="recentContent"></div></div>
   </div>
-  <div id="section-articles" class="section">
-    <div class="cards" id="articleStats"></div>
-    <div style="overflow-x:auto"><table><thead><tr>
-      <th>Title</th><th>Status</th><th>Keywords</th><th>Words</th><th>Quality</th><th>Clicks</th><th>Impr.</th><th>Revenue</th><th>Published</th>
-    </tr></thead><tbody id="articlesBody"></tbody></table></div>
+
+  <!-- CONTENT -->
+  <div id="section-content" class="section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin-bottom:0">Generated Content</h2>
+      <button class="btn btn-primary" onclick="loadContent()">↻ Refresh</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table><thead><tr>
+        <th>Title</th><th>Words</th><th>Status</th><th>Modified</th><th>Actions</th>
+      </tr></thead><tbody id="contentBody"></tbody></table>
+    </div>
   </div>
+
+  <!-- GENERATE -->
+  <div id="section-generate" class="section">
+    <h2>Generate Content</h2>
+    <div class="cards" style="max-width:400px">
+      <div class="card">
+        <div class="label">Today</div>
+        <div class="value blue" id="todayCount">0</div>
+        <div class="sub">content files generated</div>
+      </div>
+    </div>
+    <div id="generateStatus"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+      <button class="btn btn-primary" id="genBtn" onclick="triggerGenerate()">⚡ Generate Now</button>
+      <button class="btn" onclick="document.getElementById('logOutput').style.display=document.getElementById('logOutput').style.display==='none'?'block':'none'">📋 Toggle Log</button>
+    </div>
+    <pre class="log-output" id="logOutput" style="display:none">No logs yet.</pre>
+
+    <h2 style="margin-top:32px">Scheduler</h2>
+    <p style="color:#8b949e;font-size:13px;margin-bottom:16px">Automatically generate content on a schedule.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Enabled</label>
+        <select id="schedEnabled"><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+      <div class="form-group">
+        <label>Per Day</label>
+        <input type="number" id="schedPerDay" min="1" max="50" value="10" style="width:80px" />
+      </div>
+      <div class="form-group">
+        <label>Interval (minutes)</label>
+        <input type="number" id="schedInterval" min="30" max="1440" value="144" style="width:80px" />
+      </div>
+      <button class="btn btn-primary" onclick="saveScheduler()">Save</button>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
   <div id="section-analytics" class="section">
     <div class="chart-container"><canvas id="analyticsChart"></canvas></div>
     <div style="overflow-x:auto"><table><thead><tr><th>Article</th><th>Impressions</th><th>Clicks</th><th>Avg Position</th></tr></thead><tbody id="analyticsBody"></tbody></table></div>
   </div>
+
+  <!-- REVENUE -->
   <div id="section-revenue" class="section">
     <div class="cards" id="revenueCards"></div>
     <div class="chart-container"><canvas id="revenueChart"></canvas></div>
   </div>
+
+  <!-- RUNS -->
   <div id="section-runs" class="section">
     <div style="overflow-x:auto"><table><thead><tr><th>Agent</th><th>Action</th><th>Status</th><th>Duration</th><th>Started</th></tr></thead><tbody id="runsBody"></tbody></table></div>
   </div>
+
+  <!-- QUEUES -->
   <div id="section-queues" class="section">
     <div style="overflow-x:auto"><table><thead><tr><th>Queue</th><th>Waiting</th><th>Active</th><th>Completed</th><th>Failed</th><th>Delayed</th></tr></thead><tbody id="queuesBody"></tbody></table></div>
   </div>
 </main>
+
+<!-- Preview Modal -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="previewTitle">Preview</h3>
+      <button class="modal-close" onclick="closePreview()">&times;</button>
+    </div>
+    <div class="modal-body"><iframe id="previewFrame" srcdoc=""></iframe></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" onclick="copyPreview()">📋 Copy HTML</button>
+      <button class="btn btn-sm" onclick="closePreview()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="copy-toast" id="copyToast">Copied!</div>
+
 <script>
 let dailyChart, statusChart, analyticsChart, revenueChart;
+let contentCache = [];
 
+// ===== TABS =====
 function switchTab(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
   document.getElementById('section-' + name).classList.add('active');
-  document.querySelector('nav a[href="#' + name + '"]').classList.add('active');
-  if (name === 'overview') loadOverview();
-  if (name === 'articles') loadArticles();
+  document.querySelectorAll('nav a').forEach(a => { if (a.textContent.trim().toLowerCase().includes(name)) a.classList.add('active'); });
+  if (name === 'overview') { loadOverview(); loadRecentContent(); }
+  if (name === 'content') loadContent();
+  if (name === 'generate') loadGenerateTab();
   if (name === 'analytics') loadAnalytics();
   if (name === 'revenue') loadRevenue();
   if (name === 'runs') loadRuns();
   if (name === 'queues') loadQueues();
 }
 
-async function api(path) {
-  const r = await fetch(path);
+async function api(path, opts) {
+  const r = await fetch(path, opts || {});
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString() : '-'; }
+function fmtDateTime(d) { return d ? new Date(d).toLocaleString() : '-'; }
 function fmtNum(n) { return (n ?? 0).toLocaleString(); }
 function fmtMoney(n) { return '$' + (parseFloat(n || 0)).toFixed(4); }
-function fmtPct(n) { return (parseFloat(n || 0) * 100).toFixed(2) + '%'; }
-function fmtPos(n) { return (parseFloat(n || 0)).toFixed(1); }
-function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
-// === OVERVIEW ===
+// ===== OVERVIEW =====
 async function loadOverview() {
-  const data = await api('/api/dashboard/summary');
-  const s = data.scheduler || [];
-  document.getElementById('summaryCards').innerHTML = `
-    <div class="card"><div class="label">Articles</div><div class="value blue">${fmtNum(data.articles.total)}</div><div class="sub">${data.articles.published} published · ${data.articles.drafts} drafts</div></div>
-    <div class="card"><div class="label">Topics</div><div class="value green">${fmtNum(data.topics)}</div><div class="sub">${data.pipelines24h} pipelines today</div></div>
-    <div class="card"><div class="label">Impressions</div><div class="value orange">${fmtNum(data.analytics.total_impressions)}</div><div class="sub">${fmtNum(data.analytics.total_clicks)} clicks total</div></div>
-    <div class="card"><div class="label">Revenue</div><div class="value purple">${fmtMoney(data.analytics.total_revenue)}</div><div class="sub">${data.errorLogs} errors logged</div></div>
-  `;
-  // Recent runs
-  const runs = await api('/api/dashboard/runs');
-  document.getElementById('recentRuns').innerHTML = runs.length ? `<table><thead><tr><th>Agent</th><th>Action</th><th>Status</th><th>Duration</th><th>Started</th></tr></thead><tbody>${
-    runs.slice(0, 10).map(r => `<tr><td>${esc(r.agent)}</td><td>${esc(r.action)}</td><td><span class="status-badge ${r.status}">${r.status}</span></td><td>${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td>${fmtDate(r.started_at)}</td></tr>`).join('')
-  }</tbody></table>` : '<div class="empty">No pipeline runs yet</div>';
-
-  // Status chart (pipeline outcomes)
-  if (statusChart) statusChart.destroy();
-  const ctx2 = document.getElementById('statusChart').getContext('2d');
-  statusChart = new Chart(ctx2, {
-    type: 'doughnut',
-    data: {
-      labels: s.map(r => r.status),
-      datasets: [{ data: s.map(r => r.count), backgroundColor: ['#3fb950','#f85149','#d29922','#8b949e','#58a6ff'] }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#8b949e' } }, title: { display: true, text: 'Pipeline Results (7d)', color: '#e6edf3' } } }
-  });
+  try {
+    const data = await api('/api/dashboard/summary');
+    const s = data.scheduler || [];
+    document.getElementById('summaryCards').innerHTML = `
+      <div class="card"><div class="label">Articles</div><div class="value blue">${fmtNum(data.articles.total)}</div><div class="sub">${data.articles.published} published · ${data.articles.drafts} drafts</div></div>
+      <div class="card"><div class="label">Topics</div><div class="value green">${fmtNum(data.topics)}</div><div class="sub">${data.pipelines24h} pipelines today</div></div>
+      <div class="card"><div class="label">Impressions</div><div class="value orange">${fmtNum(data.analytics.total_impressions)}</div><div class="sub">${fmtNum(data.analytics.total_clicks)} clicks total</div></div>
+      <div class="card"><div class="label">Revenue</div><div class="value purple">${fmtMoney(data.analytics.total_revenue)}</div><div class="sub">${data.errorLogs} errors logged</div></div>
+    `;
+    if (statusChart) statusChart.destroy();
+    if (document.getElementById('statusChart')) {
+      const ctx2 = document.getElementById('statusChart').getContext('2d');
+      statusChart = new Chart(ctx2, {
+        type: 'doughnut', data: { labels: s.map(r => r.status), datasets: [{ data: s.map(r => r.count), backgroundColor: ['#3fb950','#f85149','#d29922','#8b949e','#58a6ff'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#8b949e' } }, title: { display: true, text: 'Pipeline Results (7d)', color: '#e6edf3' } } }
+      });
+    }
+  } catch { document.getElementById('summaryCards').innerHTML = '<div class="card"><div class="label">Status</div><div class="value orange">DB Offline</div><div class="sub">Limited view</div></div>'; }
 }
 
-// === ARTICLES ===
-async function loadArticles() {
-  const articles = await api('/api/dashboard/articles');
-  document.getElementById('articleStats').innerHTML = `
-    <div class="card"><div class="label">Total Articles</div><div class="value blue">${articles.length}</div></div>
-    <div class="card"><div class="label">Published</div><div class="value green">${articles.filter(a => a.status === 'published').length}</div></div>
-    <div class="card"><div class="label">Avg Words</div><div class="value orange">${Math.round(articles.reduce((s, a) => s + (parseInt(a.word_count) || 0), 0) / Math.max(articles.length, 1))}</div></div>
-    <div class="card"><div class="label">Total Clicks</div><div class="value purple">${articles.reduce((s, a) => s + (parseInt(a.clicks) || 0), 0)}</div></div>
-  `;
-  document.getElementById('articlesBody').innerHTML = articles.map(a => `
-    <tr>
-      <td><a href="${esc(a.blogger_url)}" target="_blank">${esc(a.title)}</a></td>
-      <td><span class="status-badge ${a.status}">${a.status}</span></td>
-      <td>${esc(a.keyword || '-')} <span style="color:#8b949e">/ ${esc(a.cluster || '-')}</span></td>
-      <td>${fmtNum(a.word_count)}</td>
-      <td>${a.quality_score || '-'}</td>
-      <td>${fmtNum(a.clicks)}</td>
-      <td>${fmtNum(a.impressions)}</td>
-      <td>${fmtMoney(a.revenue)}</td>
-      <td>${fmtDate(a.published_at)}</td>
-    </tr>
-  `).join('');
+async function loadRecentContent() {
+  try {
+    const files = await api('/api/content/files');
+    const recent = files.slice(0, 5);
+    document.getElementById('recentContent').innerHTML = recent.length
+      ? `<table><thead><tr><th>Title</th><th>Words</th><th>Status</th><th>Modified</th></tr></thead><tbody>${
+          recent.map(f => `<tr><td>${esc(f.title)}</td><td>${fmtNum(f.words)}</td><td><span class="status-badge ${f.status}">${f.status}</span></td><td>${fmtDate(f.modifiedAt)}</td></tr>`).join('')
+        }</tbody></table>`
+      : '<div class="empty">No content generated yet. Go to Generate tab.</div>';
+  } catch {}
 }
 
-// === ANALYTICS ===
-async function loadAnalytics() {
-  const data = await api('/api/dashboard/analytics');
-  const daily = data.daily || [];
-  if (analyticsChart) analyticsChart.destroy();
-  const ctx = document.getElementById('analyticsChart').getContext('2d');
-  analyticsChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: daily.map(d => d.day),
-      datasets: [
-        { label: 'Impressions', data: daily.map(d => d.impressions), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.1)', fill: true, tension: .3 },
-        { label: 'Clicks', data: daily.map(d => d.clicks), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.1)', fill: true, tension: .3 }
-      ]
-    },
-    options: { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { y: { ticks: { color: '#8b949e' } }, x: { ticks: { color: '#8b949e' } } } }
-  });
-  const byArticle = data.byArticle || [];
-  document.getElementById('analyticsBody').innerHTML = byArticle.map(a => `
-    <tr><td><a href="${esc(a.blogger_url)}" target="_blank">${esc(a.title)}</a></td><td>${fmtNum(a.impressions)}</td><td>${fmtNum(a.clicks)}</td><td>${fmtPos(a.avg_position)}</td></tr>
-  `).join('') || '<tr><td colspan="4" class="empty">No analytics data yet</td></tr>';
+// ===== CONTENT =====
+async function loadContent() {
+  try {
+    const files = await api('/api/content/files');
+    contentCache = files;
+    document.getElementById('contentBody').innerHTML = files.length
+      ? files.map(f => `<tr>
+          <td><strong>${esc(f.title)}</strong><br><span style="color:#8b949e;font-size:11px">${esc(f.slug)}</span></td>
+          <td>${fmtNum(f.words)}</td>
+          <td><span class="status-badge ${f.status}">${f.status}</span>${f.bloggerUrl ? '<br><a href="'+esc(f.bloggerUrl)+'" target="_blank" style="font-size:11px">View Post</a>' : ''}</td>
+          <td style="font-size:12px">${fmtDateTime(f.modifiedAt)}</td>
+          <td><div class="btn-group">
+            <button class="btn btn-sm" onclick="previewContent('${esc(f.slug)}')">👁 Preview</button>
+            <button class="btn btn-sm" onclick="copyContent('${esc(f.slug)}')">📋 Copy</button>
+            ${f.status === 'draft' ? `<button class="btn btn-sm btn-primary" onclick="markPosted('${esc(f.slug)}')">✓ Posted</button>` : `<button class="btn btn-sm" onclick="markDraft('${esc(f.slug)}')">↩ Draft</button>`}
+          </div></td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="empty">No content yet. Go to Generate tab to create content.</td></tr>';
+  } catch (e) { document.getElementById('contentBody').innerHTML = '<tr><td colspan="5" class="empty">Error loading content</td></tr>'; }
 }
 
-// === REVENUE ===
-async function loadRevenue() {
-  const data = await api('/api/dashboard/revenue');
-  const t = data.total || {};
-  document.getElementById('revenueCards').innerHTML = `
-    <div class="card"><div class="label">Total Revenue</div><div class="value green">${fmtMoney(t.total)}</div></div>
-    <div class="card"><div class="label">Avg RPM</div><div class="value blue">${fmtMoney(t.avg_rpm)}</div></div>
-    <div class="card"><div class="label">Entries</div><div class="value orange">${fmtNum(t.entries)}</div></div>
-  `;
-  const daily = data.daily || [];
-  if (revenueChart) revenueChart.destroy();
-  if (daily.length) {
-    const ctx = document.getElementById('revenueChart').getContext('2d');
-    revenueChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: daily.map(d => d.day),
-        datasets: [{ label: 'Revenue', data: daily.map(d => parseFloat(d.amount)), backgroundColor: 'rgba(188,140,255,.5)', borderColor: '#bc8cff', borderWidth: 1 }]
-      },
-      options: { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { y: { ticks: { color: '#8b949e', callback: v => '$' + v } }, x: { ticks: { color: '#8b949e' } } } }
-    });
+// Preview
+async function previewContent(slug) {
+  try {
+    const data = await api('/api/content/files/' + encodeURIComponent(slug));
+    document.getElementById('previewTitle').textContent = data.title || slug;
+    document.getElementById('previewFrame').srcdoc = data.html;
+    document.getElementById('previewModal').classList.add('active');
+    document.getElementById('previewModal').dataset.slug = slug;
+  } catch (e) { alert('Failed to load preview'); }
+}
+
+function closePreview() {
+  document.getElementById('previewModal').classList.remove('active');
+}
+
+async function copyPreview() {
+  const slug = document.getElementById('previewModal').dataset.slug;
+  await copyContent(slug);
+}
+
+async function copyContent(slug) {
+  try {
+    const data = await api('/api/content/files/' + encodeURIComponent(slug));
+    await navigator.clipboard.writeText(data.html);
+    const toast = document.getElementById('copyToast');
+    toast.textContent = 'Copied!';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  } catch {
+    // Fallback for older browsers
+    const data = await api('/api/content/files/' + encodeURIComponent(slug));
+    const ta = document.createElement('textarea');
+    ta.value = data.html;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const toast = document.getElementById('copyToast');
+    toast.textContent = 'Copied!';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
   }
 }
 
-// === RUNS ===
+async function markPosted(slug) {
+  await api('/api/content/files/' + encodeURIComponent(slug) + '/status', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ posted: true })
+  });
+  loadContent();
+}
+
+async function markDraft(slug) {
+  await api('/api/content/files/' + encodeURIComponent(slug) + '/status', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ posted: false })
+  });
+  loadContent();
+}
+
+// ===== GENERATE =====
+async function loadGenerateTab() {
+  try {
+    const status = await api('/api/content/generate/status');
+    const btn = document.getElementById('genBtn');
+    if (status.generating) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+      document.getElementById('generateStatus').innerHTML = '<div class="generating-progress"><div class="spinner"></div><span>Content generation in progress...</span></div>';
+      setTimeout(loadGenerateTab, 3000);
+    } else {
+      btn.disabled = false;
+      btn.textContent = '⚡ Generate Now';
+      document.getElementById('generateStatus').innerHTML = '';
+    }
+  } catch {}
+  try {
+    const files = await api('/api/content/files');
+    const today = new Date().toDateString();
+    const todayFiles = files.filter(f => new Date(f.modifiedAt).toDateString() === today);
+    document.getElementById('todayCount').textContent = todayFiles.length;
+  } catch {}
+  loadScheduler();
+}
+
+async function triggerGenerate() {
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating...';
+  document.getElementById('generateStatus').innerHTML = '<div class="generating-progress"><div class="spinner"></div><span>Content generation in progress...</span></div>';
+  const log = document.getElementById('logOutput');
+  log.style.display = 'block';
+  log.textContent = 'Starting generation...\n';
+
+  try {
+    const result = await api('/api/content/generate', { method: 'POST' });
+    log.textContent = result.output;
+    if (result.success) {
+      document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:8px;color:#3fb950">✅ Generation completed successfully!</div>';
+    } else {
+      document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#f85149">❌ Generation failed. Check log below.</div>';
+    }
+  } catch (e) {
+    log.textContent = 'Error: ' + e.message;
+    document.getElementById('generateStatus').innerHTML = '<div style="padding:12px 16px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#f85149">❌ ' + esc(e.message) + '</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '⚡ Generate Now';
+  loadContent();
+  loadGenerateTab();
+}
+
+// ===== SCHEDULER =====
+async function loadScheduler() {
+  try {
+    const cfg = await api('/api/content/scheduler');
+    document.getElementById('schedEnabled').value = cfg.enabled ? 'true' : 'false';
+    document.getElementById('schedPerDay').value = cfg.perDay || 10;
+    document.getElementById('schedInterval').value = cfg.intervalMinutes || 144;
+  } catch {}
+}
+
+async function saveScheduler() {
+  const body = {
+    enabled: document.getElementById('schedEnabled').value === 'true',
+    perDay: parseInt(document.getElementById('schedPerDay').value) || 10,
+    intervalMinutes: parseInt(document.getElementById('schedInterval').value) || 144,
+  };
+  const result = await api('/api/content/scheduler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  alert('Scheduler saved! ' + (result.enabled ? 'Enabled, every ' + result.intervalMinutes + ' min' : 'Disabled'));
+}
+
+// ===== ANALYTICS =====
+async function loadAnalytics() {
+  try {
+    const data = await api('/api/dashboard/analytics');
+    const daily = data.daily || [];
+    if (analyticsChart) analyticsChart.destroy();
+    if (daily.length && document.getElementById('analyticsChart')) {
+      const ctx = document.getElementById('analyticsChart').getContext('2d');
+      analyticsChart = new Chart(ctx, {
+        type: 'line', data: { labels: daily.map(d => d.day), datasets: [
+          { label: 'Impressions', data: daily.map(d => d.impressions), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.1)', fill: true, tension: .3 },
+          { label: 'Clicks', data: daily.map(d => d.clicks), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.1)', fill: true, tension: .3 }
+        ]},
+        options: { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { y: { ticks: { color: '#8b949e' } }, x: { ticks: { color: '#8b949e' } } } }
+      });
+    }
+    const byArticle = data.byArticle || [];
+    document.getElementById('analyticsBody').innerHTML = byArticle.map(a =>
+      `<tr><td><a href="${esc(a.blogger_url)}" target="_blank">${esc(a.title)}</a></td><td>${fmtNum(a.impressions)}</td><td>${fmtNum(a.clicks)}</td><td>${a.avg_position || '-'}</td></tr>`
+    ).join('') || '<tr><td colspan="4" class="empty">No analytics data yet</td></tr>';
+  } catch { document.getElementById('analyticsBody').innerHTML = '<tr><td colspan="4" class="empty">DB Offline</td></tr>'; }
+}
+
+// ===== REVENUE =====
+async function loadRevenue() {
+  try {
+    const data = await api('/api/dashboard/revenue');
+    const t = data.total || {};
+    document.getElementById('revenueCards').innerHTML = `
+      <div class="card"><div class="label">Total Revenue</div><div class="value green">${fmtMoney(t.total)}</div></div>
+      <div class="card"><div class="label">Avg RPM</div><div class="value blue">${fmtMoney(t.avg_rpm)}</div></div>
+      <div class="card"><div class="label">Entries</div><div class="value orange">${fmtNum(t.entries)}</div></div>
+    `;
+    const daily = data.daily || [];
+    if (revenueChart) revenueChart.destroy();
+    if (daily.length && document.getElementById('revenueChart')) {
+      const ctx = document.getElementById('revenueChart').getContext('2d');
+      revenueChart = new Chart(ctx, {
+        type: 'bar', data: { labels: daily.map(d => d.day), datasets: [{ label: 'Revenue', data: daily.map(d => parseFloat(d.amount)), backgroundColor: 'rgba(188,140,255,.5)', borderColor: '#bc8cff', borderWidth: 1 }] },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { y: { ticks: { color: '#8b949e', callback: v => '$' + v } }, x: { ticks: { color: '#8b949e' } } } }
+      });
+    }
+  } catch {}
+}
+
+// ===== RUNS =====
 async function loadRuns() {
-  const runs = await api('/api/dashboard/runs');
-  document.getElementById('runsBody').innerHTML = runs.map(r => `
-    <tr>
-      <td>${esc(r.agent)}</td>
-      <td>${esc(r.action) || '-'}</td>
-      <td><span class="status-badge ${r.status}">${r.status}</span></td>
-      <td>${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td>
-      <td>${fmtDate(r.started_at)} ${r.started_at ? new Date(r.started_at).toLocaleTimeString() : ''}</td>
-    </tr>
-  `).join('');
+  try {
+    const runs = await api('/api/dashboard/runs');
+    document.getElementById('runsBody').innerHTML = runs.map(r =>
+      `<tr><td>${esc(r.agent)}</td><td>${esc(r.action) || '-'}</td><td><span class="status-badge ${r.status}">${r.status}</span></td><td>${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td>${fmtDate(r.started_at)} ${r.started_at ? new Date(r.started_at).toLocaleTimeString() : ''}</td></tr>`
+    ).join('');
+  } catch { document.getElementById('runsBody').innerHTML = '<tr><td colspan="5" class="empty">DB Offline</td></tr>'; }
 }
 
-// === QUEUES ===
+// ===== QUEUES =====
 async function loadQueues() {
-  const queues = await api('/api/dashboard/queues');
-  const names = Object.keys(queues);
-  document.getElementById('queuesBody').innerHTML = names.map(name => {
-    const q = queues[name] || {};
-    return `<tr><td><strong>${esc(name)}</strong></td><td>${q.waiting || 0}</td><td>${q.active || 0}</td><td>${q.completed || 0}</td><td>${q.failed || 0}</td><td>${q.delayed || 0}</td></tr>`;
-  }).join('');
+  try {
+    const queues = await api('/metrics');
+    document.getElementById('queuesBody').innerHTML = Object.keys(queues).map(name => {
+      const q = queues[name] || {};
+      return `<tr><td><strong>${esc(name)}</strong></td><td>${q.waiting || 0}</td><td>${q.active || 0}</td><td>${q.completed || 0}</td><td>${q.failed || 0}</td><td>${q.delayed || 0}</td></tr>`;
+    }).join('');
+  } catch { document.getElementById('queuesBody').innerHTML = '<tr><td colspan="6" class="empty">No queue data</td></tr>'; }
 }
 
-// === AUTO REFRESH ===
+// ===== AUTO REFRESH =====
 async function checkStatus() {
   try {
     const h = await fetch('/health');
@@ -269,8 +502,9 @@ async function checkStatus() {
   }
 }
 
-// Load overview on startup
+// Init
 loadOverview();
+loadRecentContent();
 checkStatus();
 setInterval(checkStatus, 30000);
 </script>

@@ -18,6 +18,8 @@ services:
         condition: service_started
     volumes:
       - ./images:/app/images
+      - ./result:/app/result
+      - ./data:/app/data
     restart: unless-stopped
     networks:
       - blogger-net
@@ -40,6 +42,8 @@ services:
         condition: service_started
     volumes:
       - ./images:/app/images
+      - ./result:/app/result
+      - ./data:/app/data
     restart: unless-stopped
     networks:
       - blogger-net
@@ -60,6 +64,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    volumes:
+      - ./result:/app/result
+      - ./data:/app/data
     restart: unless-stopped
     networks:
       - blogger-net

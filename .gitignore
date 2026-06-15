@@ -5,4 +5,6 @@ logs/
 *.log
 images/*
 !images/.gitkeep
+data/content-status.json
+result/
 .DS_Store
