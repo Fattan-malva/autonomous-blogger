@@ -11,7 +11,7 @@ export const env = {
   REDIS_URL: process.env.REDIS_URL || '',
 
   GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY || '',
-  GOOGLE_AI_MODEL: process.env.GOOGLE_AI_MODEL || 'gemma-3-31b-it',
+  GOOGLE_AI_MODEL: process.env.GOOGLE_AI_MODEL || 'gemma-4-26b-a4b-it',
 
   BLOGGER_BLOG_ID: process.env.BLOGGER_BLOG_ID || '',
   BLOGGER_CLIENT_ID: process.env.BLOGGER_CLIENT_ID || '',

@@ -3,6 +3,21 @@ import { logger } from '../../config/logger';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
+interface Part {
+  text?: string;
+  thought?: boolean;
+}
+
+interface Candidate {
+  content?: { parts?: Part[] };
+}
+
+function extractText(parts: Part[] | undefined): string {
+  if (!parts || parts.length === 0) return '';
+  const lastNonThought = parts.filter(p => !p.thought).pop();
+  return lastNonThought?.text || parts[0]?.text || '';
+}
+
 export function initGoogleAI(): void {
   if (!env.GOOGLE_AI_API_KEY) {
     throw new Error('GOOGLE_AI_API_KEY is not configured');
@@ -26,8 +41,8 @@ export async function generateContent(prompt: string): Promise<string> {
       throw new Error(`Google AI API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const data = await response.json() as { candidates?: Candidate[] };
+    return extractText(data.candidates?.[0]?.content?.parts);
   } catch (error) {
     logger.error('Google AI generation failed', { error });
     throw error;
@@ -53,11 +68,11 @@ export async function generateContentStream(
       throw new Error(`Google AI API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json() as Array<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>;
+    const data = await response.json() as Array<{ candidates?: Candidate[] }>;
     let fullText = '';
 
     for (const chunk of data) {
-      const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const text = extractText(chunk.candidates?.[0]?.content?.parts);
       fullText += text;
       onChunk(text);
     }
@@ -90,8 +105,8 @@ export async function generateWithSystemPrompt(
       throw new Error(`Google AI API error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const data = await response.json() as { candidates?: Candidate[] };
+    return extractText(data.candidates?.[0]?.content?.parts);
   } catch (error) {
     logger.error('Google AI system prompt generation failed', { error });
     throw error;
