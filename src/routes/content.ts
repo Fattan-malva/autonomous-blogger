@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { getStatus, setStatus, getAllStatuses, removeStatus, getSchedulerConfig, updateSchedulerConfig } from '../services/content-store';
 import { restartContentScheduler } from '../services/scheduler-service';
 import { submitUrlForIndexing } from '../services/search-console';
+import { startGenerationJob, completeGenerationJob, getRecentJobs, getGenerationStats } from '../services/generation-tracker';
 
 const router = Router();
 const RESULT_DIR = resolve(__dirname, '../../result');
@@ -101,28 +102,32 @@ router.post('/files/:slug/status', (req: Request, res: Response) => {
 });
 
 // Trigger content generation
-let generating = false;
+const activeGeneration: { jobId: string; res: Response }[] = [];
 router.post('/generate', (req: Request, res: Response) => {
-  if (generating) {
+  if (activeGeneration.length > 0) {
     return res.status(429).json({ error: 'Already generating' });
   }
-  generating = true;
+  const jobId = startGenerationJob('manual');
   const isProd = process.env.NODE_ENV === 'production';
   const cmd = isProd
     ? 'node dist/generate-content.js'
     : (process.platform === 'win32' ? 'npx.cmd ts-node src/generate-content.ts' : 'npx ts-node src/generate-content.ts');
-  exec(cmd, { cwd: resolve(__dirname, '../..'), timeout: 300000 }, (error, stdout, stderr) => {
-    generating = false;
+  const child = exec(cmd, { cwd: resolve(__dirname, '../..'), timeout: 300000 }, (error, stdout, stderr) => {
+    const output = stdout + '\n' + stderr;
+    completeGenerationJob(jobId, output, !error);
+    const idx = activeGeneration.findIndex(a => a.jobId === jobId);
+    if (idx !== -1) activeGeneration.splice(idx, 1);
     if (error) {
-      return res.json({ success: false, output: stdout + '\n' + stderr });
+      return res.json({ success: false, output });
     }
-    res.json({ success: true, output: stdout });
+    res.json({ success: true, output });
   });
+  activeGeneration.push({ jobId, res });
 });
 
 // Get generation status
 router.get('/generate/status', (_req: Request, res: Response) => {
-  res.json({ generating });
+  res.json({ generating: activeGeneration.length > 0 });
 });
 
 // Delete content file + status
@@ -179,6 +184,14 @@ router.post('/scheduler', (req: Request, res: Response) => {
   });
   restartContentScheduler();
   res.json(config);
+});
+
+// Generation jobs & stats
+router.get('/jobs', (_req: Request, res: Response) => {
+  res.json({
+    jobs: getRecentJobs(100),
+    stats: getGenerationStats(),
+  });
 });
 
 export default router;

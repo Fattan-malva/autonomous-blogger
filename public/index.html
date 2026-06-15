@@ -47,6 +47,8 @@ tr:hover td { background: #1c2128; }
 .status-badge.generating { background: rgba(88,166,255,.15); color: #58a6ff; }
 .status-badge.indexed { background: rgba(88,166,255,.15); color: #58a6ff; }
 .status-badge.index-failed { background: rgba(248,81,73,.15); color: #f85149; }
+.status-badge.manual { background: rgba(88,166,255,.15); color: #58a6ff; }
+.status-badge.scheduler { background: rgba(210,153,34,.15); color: #d29922; }
 a { color: #58a6ff; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .chart-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
@@ -257,8 +259,13 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
 <script>
 let dailyChart, statusChart, analyticsChart, revenueChart;
 let contentCache = [];
+let activeTab = '';
+let pollTimers = {};
 
 function switchTab(name) {
+  // Clear all poll timers
+  Object.keys(pollTimers).forEach(k => { clearInterval(pollTimers[k]); delete pollTimers[k]; });
+  activeTab = name;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
   document.getElementById('section-' + name).classList.add('active');
@@ -268,8 +275,8 @@ function switchTab(name) {
   if (name === 'generate') loadGenerateTab();
   if (name === 'analytics') loadAnalytics();
   if (name === 'revenue') loadRevenue();
-  if (name === 'runs') loadRuns();
-  if (name === 'queues') loadQueues();
+  if (name === 'runs') { loadRuns(); pollTimers.runs = setInterval(loadRuns, 5000); }
+  if (name === 'queues') { loadQueues(); pollTimers.queues = setInterval(loadQueues, 5000); }
 }
 
 async function api(path, opts) {
@@ -593,21 +600,27 @@ async function loadRevenue() {
 // ===== RUNS =====
 async function loadRuns() {
   try {
-    const runs = await api('/api/dashboard/runs');
-    document.getElementById('runsBody').innerHTML = runs.map(r =>
-      `<tr><td>${esc(r.agent)}</td><td>${esc(r.action) || '-'}</td><td><span class="status-badge ${r.status}">${r.status}</span></td><td>${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td>${fmtDate(r.started_at)} ${r.started_at ? new Date(r.started_at).toLocaleTimeString() : ''}</td></tr>`
-    ).join('');
-  } catch { document.getElementById('runsBody').innerHTML = '<tr><td colspan="5" class="empty">DB Offline</td></tr>'; }
+    const data = await api('/api/content/jobs');
+    const jobs = data.jobs || [];
+    document.getElementById('runsBody').innerHTML = jobs.map(j =>
+      `<tr>
+        <td><span class="status-badge ${j.type}">${esc(j.type)}</span></td>
+        <td>${esc(j.topic || '-')}</td>
+        <td><span class="status-badge ${j.status}">${j.status}</span></td>
+        <td>${j.duration ? (j.duration / 1000).toFixed(1) + 's' : (j.status === 'running' ? '<span class="spinner"></span>' : '-')}</td>
+        <td>${fmtDate(j.startedAt)} ${j.startedAt ? new Date(j.startedAt).toLocaleTimeString() : ''}</td>
+      </tr>`
+    ).join('') || '<tr><td colspan="5" class="empty">No generation jobs yet</td></tr>';
+  } catch { document.getElementById('runsBody').innerHTML = '<tr><td colspan="5" class="empty">No generation data</td></tr>'; }
 }
 
 // ===== QUEUES =====
 async function loadQueues() {
   try {
-    const queues = await api('/metrics');
-    document.getElementById('queuesBody').innerHTML = Object.keys(queues).map(name => {
-      const q = queues[name] || {};
-      return `<tr><td><strong>${esc(name)}</strong></td><td>${q.waiting || 0}</td><td>${q.active || 0}</td><td>${q.completed || 0}</td><td>${q.failed || 0}</td><td>${q.delayed || 0}</td></tr>`;
-    }).join('');
+    const data = await api('/api/content/jobs');
+    const stats = data.stats || { active: 0, completed: 0, failed: 0 };
+    document.getElementById('queuesBody').innerHTML =
+      `<tr><td><strong>Generation</strong></td><td>-</td><td>${stats.active}</td><td>${stats.completed}</td><td>${stats.failed}</td><td>-</td></tr>`;
   } catch { document.getElementById('queuesBody').innerHTML = '<tr><td colspan="6" class="empty">No queue data</td></tr>'; }
 }
 

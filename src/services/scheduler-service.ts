@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { exec } from 'child_process';
 import path from 'path';
 import { getSchedulerConfig } from './content-store';
+import { startGenerationJob, completeGenerationJob } from './generation-tracker';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 
@@ -24,6 +25,7 @@ export function restartContentScheduler(): void {
 
   schedulerTask = cron.schedule(cronExpr, () => {
     logger.info('Scheduled content generation starting...');
+    const jobId = startGenerationJob('scheduler');
     const isProd = env.NODE_ENV === 'production';
     const cmd = isProd
       ? 'node dist/generate-content.js'
@@ -31,6 +33,8 @@ export function restartContentScheduler(): void {
         ? 'npx.cmd ts-node src/generate-content.ts'
         : 'npx ts-node src/generate-content.ts';
     exec(cmd, { cwd: path.resolve(__dirname, '../..'), timeout: 300000 }, (error, stdout, stderr) => {
+      const output = stdout + '\n' + stderr;
+      completeGenerationJob(jobId, output, !error);
       if (error) {
         logger.error('Scheduled generation failed', { error: stderr || stdout });
       } else {
