@@ -3,17 +3,22 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { testConnection } from './database/connection';
 import { getQueue, QueueName, getQueueJobCounts, closeAllQueues } from './services/queue';
+import dashboardRoutes from './routes/dashboard';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(morgan('combined', { stream: { write: (msg: string) => logger.info(msg.trim()) } }));
 app.use(express.json());
+
+// Serve dashboard static files
+app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
@@ -39,6 +44,14 @@ app.get('/api/status', async (_req, res) => {
     uptime: process.uptime(),
     memory: process.memoryUsage(),
   });
+});
+
+// Dashboard API routes
+app.use('/api/dashboard', dashboardRoutes);
+
+// SPA fallback — serve dashboard for all unmatched routes
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 async function start(): Promise<void> {

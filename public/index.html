@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blogger SEO Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+header { background: #161b22; border-bottom: 1px solid #30363d; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+header h1 { font-size: 20px; font-weight: 600; }
+header h1 span { color: #58a6ff; }
+header .status { font-size: 13px; color: #8b949e; display: flex; align-items: center; gap: 8px; }
+header .status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+header .status .dot.online { background: #3fb950; }
+header .status .dot.offline { background: #f85149; }
+nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 0 24px; display: flex; gap: 0; overflow-x: auto; }
+nav a { color: #8b949e; text-decoration: none; padding: 12px 20px; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; }
+nav a:hover { color: #e6edf3; }
+nav a.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+.section { display: none; }
+.section.active { display: block; }
+.section h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #e6edf3; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+.card .label { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.card .value { font-size: 28px; font-weight: 700; }
+.card .value.green { color: #3fb950; }
+.card .value.blue { color: #58a6ff; }
+.card .value.orange { color: #d29922; }
+.card .value.red { color: #f85149; }
+.card .value.purple { color: #bc8cff; }
+.card .sub { font-size: 12px; color: #8b949e; margin-top: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; background: #161b22; border-radius: 8px; overflow: hidden; border: 1px solid #30363d; }
+th { text-align: left; padding: 10px 12px; background: #1c2128; color: #8b949e; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #30363d; }
+td { padding: 10px 12px; border-bottom: 1px solid #21262d; }
+tr:hover td { background: #1c2128; }
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+.status-badge.published { background: rgba(63,185,80,.15); color: #3fb950; }
+.status-badge.draft { background: rgba(210,153,34,.15); color: #d29922; }
+.status-badge.error { background: rgba(248,81,73,.15); color: #f85149; }
+.status-badge.success { background: rgba(63,185,80,.15); color: #3fb950; }
+.status-badge.running { background: rgba(88,166,255,.15); color: #58a6ff; }
+.status-badge.failed { background: rgba(248,81,73,.15); color: #f85149; }
+.status-badge.cancelled { background: rgba(139,148,158,.15); color: #8b949e; }
+a { color: #58a6ff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.chart-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.mb16 { margin-bottom: 16px; }
+.mt16 { margin-top: 16px; }
+.empty { color: #8b949e; font-size: 14px; padding: 24px; text-align: center; }
+.badge-group { display: flex; gap: 4px; flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .chart-row { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  header { flex-direction: column; gap: 8px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Blogger <span>SEO</span> Dashboard</h1>
+  <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Loading...</span></div>
+</header>
+<nav id="nav">
+  <a href="#overview" class="active" onclick="switchTab('overview')">Overview</a>
+  <a href="#articles" onclick="switchTab('articles')">Articles</a>
+  <a href="#analytics" onclick="switchTab('analytics')">Analytics</a>
+  <a href="#revenue" onclick="switchTab('revenue')">Revenue</a>
+  <a href="#runs" onclick="switchTab('runs')">Pipeline</a>
+  <a href="#queues" onclick="switchTab('queues')">Queues</a>
+</nav>
+<main>
+  <div id="section-overview" class="section active">
+    <div class="cards" id="summaryCards"></div>
+    <div class="chart-row">
+      <div class="chart-container"><canvas id="dailyChart"></canvas></div>
+      <div class="chart-container"><canvas id="statusChart"></canvas></div>
+    </div>
+    <div class="chart-container"><h2 style="margin-bottom:12px">Recent Pipeline Runs</h2><div id="recentRuns"></div></div>
+  </div>
+  <div id="section-articles" class="section">
+    <div class="cards" id="articleStats"></div>
+    <div style="overflow-x:auto"><table><thead><tr>
+      <th>Title</th><th>Status</th><th>Keywords</th><th>Words</th><th>Quality</th><th>Clicks</th><th>Impr.</th><th>Revenue</th><th>Published</th>
+    </tr></thead><tbody id="articlesBody"></tbody></table></div>
+  </div>
+  <div id="section-analytics" class="section">
+    <div class="chart-container"><canvas id="analyticsChart"></canvas></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Article</th><th>Impressions</th><th>Clicks</th><th>Avg Position</th></tr></thead><tbody id="analyticsBody"></tbody></table></div>
+  </div>
+  <div id="section-revenue" class="section">
+    <div class="cards" id="revenueCards"></div>
+    <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+  </div>
+  <div id="section-runs" class="section">
+    <div style="overflow-x:auto"><table><thead><tr><th>Agent</th><th>Action</th><th>Status</th><th>Duration</th><th>Started</th></tr></thead><tbody id="runsBody"></tbody></table></div>
+  </div>
+  <div id="section-queues" class="section">
+    <div style="overflow-x:auto"><table><thead><tr><th>Queue</th><th>Waiting</th><th>Active</th><th>Completed</th><th>Failed</th><th>Delayed</th></tr></thead><tbody id="queuesBody"></tbody></table></div>
+  </div>
+</main>
+<script>
+let dailyChart, statusChart, analyticsChart, revenueChart;
+
+function switchTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  document.querySelector('nav a[href="#' + name + '"]').classList.add('active');
+  if (name === 'overview') loadOverview();
+  if (name === 'articles') loadArticles();
+  if (name === 'analytics') loadAnalytics();
+  if (name === 'revenue') loadRevenue();
+  if (name === 'runs') loadRuns();
+  if (name === 'queues') loadQueues();
+}
+
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString() : '-'; }
+function fmtNum(n) { return (n ?? 0).toLocaleString(); }
+function fmtMoney(n) { return '$' + (parseFloat(n || 0)).toFixed(4); }
+function fmtPct(n) { return (parseFloat(n || 0) * 100).toFixed(2) + '%'; }
+function fmtPos(n) { return (parseFloat(n || 0)).toFixed(1); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// === OVERVIEW ===
+async function loadOverview() {
+  const data = await api('/api/dashboard/summary');
+  const s = data.scheduler || [];
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="card"><div class="label">Articles</div><div class="value blue">${fmtNum(data.articles.total)}</div><div class="sub">${data.articles.published} published · ${data.articles.drafts} drafts</div></div>
+    <div class="card"><div class="label">Topics</div><div class="value green">${fmtNum(data.topics)}</div><div class="sub">${data.pipelines24h} pipelines today</div></div>
+    <div class="card"><div class="label">Impressions</div><div class="value orange">${fmtNum(data.analytics.total_impressions)}</div><div class="sub">${fmtNum(data.analytics.total_clicks)} clicks total</div></div>
+    <div class="card"><div class="label">Revenue</div><div class="value purple">${fmtMoney(data.analytics.total_revenue)}</div><div class="sub">${data.errorLogs} errors logged</div></div>
+  `;
+  // Recent runs
+  const runs = await api('/api/dashboard/runs');
+  document.getElementById('recentRuns').innerHTML = runs.length ? `<table><thead><tr><th>Agent</th><th>Action</th><th>Status</th><th>Duration</th><th>Started</th></tr></thead><tbody>${
+    runs.slice(0, 10).map(r => `<tr><td>${esc(r.agent)}</td><td>${esc(r.action)}</td><td><span class="status-badge ${r.status}">${r.status}</span></td><td>${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td><td>${fmtDate(r.started_at)}</td></tr>`).join('')
+  }</tbody></table>` : '<div class="empty">No pipeline runs yet</div>';
+
+  // Status chart (pipeline outcomes)
+  if (statusChart) statusChart.destroy();
+  const ctx2 = document.getElementById('statusChart').getContext('2d');
+  statusChart = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: s.map(r => r.status),
+      datasets: [{ data: s.map(r => r.count), backgroundColor: ['#3fb950','#f85149','#d29922','#8b949e','#58a6ff'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#8b949e' } }, title: { display: true, text: 'Pipeline Results (7d)', color: '#e6edf3' } } }
+  });
+}
+
+// === ARTICLES ===
+async function loadArticles() {
+  const articles = await api('/api/dashboard/articles');
+  document.getElementById('articleStats').innerHTML = `
+    <div class="card"><div class="label">Total Articles</div><div class="value blue">${articles.length}</div></div>
+    <div class="card"><div class="label">Published</div><div class="value green">${articles.filter(a => a.status === 'published').length}</div></div>
+    <div class="card"><div class="label">Avg Words</div><div class="value orange">${Math.round(articles.reduce((s, a) => s + (parseInt(a.word_count) || 0), 0) / Math.max(articles.length, 1))}</div></div>
+    <div class="card"><div class="label">Total Clicks</div><div class="value purple">${articles.reduce((s, a) => s + (parseInt(a.clicks) || 0), 0)}</div></div>
+  `;
+  document.getElementById('articlesBody').innerHTML = articles.map(a => `
+    <tr>
+      <td><a href="${esc(a.blogger_url)}" target="_blank">${esc(a.title)}</a></td>
+      <td><span class="status-badge ${a.status}">${a.status}</span></td>
+      <td>${esc(a.keyword || '-')} <span style="color:#8b949e">/ ${esc(a.cluster || '-')}</span></td>
+      <td>${fmtNum(a.word_count)}</td>
+      <td>${a.quality_score || '-'}</td>
+      <td>${fmtNum(a.clicks)}</td>
+      <td>${fmtNum(a.impressions)}</td>
+      <td>${fmtMoney(a.revenue)}</td>
+      <td>${fmtDate(a.published_at)}</td>
+    </tr>
+  `).join('');
+}
+
+// === ANALYTICS ===
+async function loadAnalytics() {
+  const data = await api('/api/dashboard/analytics');
+  const daily = data.daily || [];
+  if (analyticsChart) analyticsChart.destroy();
+  const ctx = document.getElementById('analyticsChart').getContext('2d');
+  analyticsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: daily.map(d => d.day),
+      datasets: [
+        { label: 'Impressions', data: daily.map(d => d.impressions), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.1)', fill: true, tension: .3 },
+        { label: 'Clicks', data: daily.map(d => d.clicks), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.1)', fill: true, tension: .3 }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { y: { ticks: { color: '#8b949e' } }, x: { ticks: { color: '#8b949e' } } } }
+  });
+  const byArticle = data.byArticle || [];
+  document.getElementById('analyticsBody').innerHTML = byArticle.map(a => `
+    <tr><td><a href="${esc(a.blogger_url)}" target="_blank">${esc(a.title)}</a></td><td>${fmtNum(a.impressions)}</td><td>${fmtNum(a.clicks)}</td><td>${fmtPos(a.avg_position)}</td></tr>
+  `).join('') || '<tr><td colspan="4" class="empty">No analytics data yet</td></tr>';
+}
+
+// === REVENUE ===
+async function loadRevenue() {
+  const data = await api('/api/dashboard/revenue');
+  const t = data.total || {};
+  document.getElementById('revenueCards').innerHTML = `
+    <div class="card"><div class="label">Total Revenue</div><div class="value green">${fmtMoney(t.total)}</div></div>
+    <div class="card"><div class="label">Avg RPM</div><div class="value blue">${fmtMoney(t.avg_rpm)}</div></div>
+    <div class="card"><div class="label">Entries</div><div class="value orange">${fmtNum(t.entries)}</div></div>
+  `;
+  const daily = data.daily || [];
+  if (revenueChart) revenueChart.destroy();
+  if (daily.length) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    revenueChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: daily.map(d => d.day),
+        datasets: [{ label: 'Revenue', data: daily.map(d => parseFloat(d.amount)), backgroundColor: 'rgba(188,140,255,.5)', borderColor: '#bc8cff', borderWidth: 1 }]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { color: '#8b949e' } } }, scales: { y: { ticks: { color: '#8b949e', callback: v => '$' + v } }, x: { ticks: { color: '#8b949e' } } } }
+    });
+  }
+}
+
+// === RUNS ===
+async function loadRuns() {
+  const runs = await api('/api/dashboard/runs');
+  document.getElementById('runsBody').innerHTML = runs.map(r => `
+    <tr>
+      <td>${esc(r.agent)}</td>
+      <td>${esc(r.action) || '-'}</td>
+      <td><span class="status-badge ${r.status}">${r.status}</span></td>
+      <td>${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td>
+      <td>${fmtDate(r.started_at)} ${r.started_at ? new Date(r.started_at).toLocaleTimeString() : ''}</td>
+    </tr>
+  `).join('');
+}
+
+// === QUEUES ===
+async function loadQueues() {
+  const queues = await api('/api/dashboard/queues');
+  const names = Object.keys(queues);
+  document.getElementById('queuesBody').innerHTML = names.map(name => {
+    const q = queues[name] || {};
+    return `<tr><td><strong>${esc(name)}</strong></td><td>${q.waiting || 0}</td><td>${q.active || 0}</td><td>${q.completed || 0}</td><td>${q.failed || 0}</td><td>${q.delayed || 0}</td></tr>`;
+  }).join('');
+}
+
+// === AUTO REFRESH ===
+async function checkStatus() {
+  try {
+    const h = await fetch('/health');
+    const data = await h.json();
+    document.getElementById('statusDot').className = 'dot online';
+    document.getElementById('statusText').textContent = 'Online · Uptime: ' + Math.floor(data.uptime / 60) + 'm';
+  } catch {
+    document.getElementById('statusDot').className = 'dot offline';
+    document.getElementById('statusText').textContent = 'Offline';
+  }
+}
+
+// Load overview on startup
+loadOverview();
+checkStatus();
+setInterval(checkStatus, 30000);
+</script>
+</body>
+</html>
