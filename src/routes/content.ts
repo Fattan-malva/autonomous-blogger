@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, existsSync, statSync, unlinkSync } from 'fs'
 import { resolve, join } from 'path';
 import { exec } from 'child_process';
 import { getStatus, setStatus, getAllStatuses, removeStatus, getSchedulerConfig, updateSchedulerConfig } from '../services/content-store';
+import { restartContentScheduler } from '../services/scheduler-service';
 import { submitUrlForIndexing } from '../services/search-console';
 
 const router = Router();
@@ -176,6 +177,7 @@ router.post('/scheduler', (req: Request, res: Response) => {
     perDay: typeof perDay === 'number' ? perDay : undefined,
     intervalMinutes: typeof intervalMinutes === 'number' ? intervalMinutes : undefined,
   });
+  restartContentScheduler();
   res.json(config);
 });
 

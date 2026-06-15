@@ -4,15 +4,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
-import cron from 'node-cron';
-import { exec } from 'child_process';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { testConnection } from './database/connection';
-import { getQueue, QueueName, getQueueJobCounts, closeAllQueues } from './services/queue';
+import { QueueName, getQueueJobCounts, closeAllQueues } from './services/queue';
 import dashboardRoutes from './routes/dashboard';
 import contentRoutes from './routes/content';
-import { getSchedulerConfig } from './services/content-store';
+import { restartContentScheduler, stopContentScheduler } from './services/scheduler-service';
 import { existsSync, readdirSync } from 'fs';
 
 const app = express();
@@ -68,39 +66,6 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Scheduled content generation
-let schedulerTask: cron.ScheduledTask | null = null;
-
-function startContentScheduler(): void {
-  const cfg = getSchedulerConfig();
-  if (!cfg.enabled) {
-    logger.info('Content scheduler is disabled');
-    return;
-  }
-  if (schedulerTask) schedulerTask.stop();
-
-  // Run every `intervalMinutes` minutes
-  const interval = Math.max(cfg.intervalMinutes || 144, 30);
-  const cronExpr = `*/${interval} * * * *`;
-
-  schedulerTask = cron.schedule(cronExpr, () => {
-    logger.info('Scheduled content generation starting...');
-    const isProd = env.NODE_ENV === 'production';
-    const cmd = isProd
-      ? 'node dist/generate-content.js'
-      : (process.platform === 'win32' ? 'npx.cmd ts-node src/generate-content.ts' : 'npx ts-node src/generate-content.ts');
-    exec(cmd, { cwd: path.resolve(__dirname, '..'), timeout: 300000 }, (error, stdout, stderr) => {
-      if (error) {
-        logger.error('Scheduled generation failed', { error: stderr || stdout });
-      } else {
-        logger.info('Scheduled generation completed');
-      }
-    });
-  });
-
-  logger.info(`Content scheduler started: every ${interval} minutes`);
-}
-
 async function start(): Promise<void> {
   let dbConnected = false;
   try {
@@ -116,7 +81,7 @@ async function start(): Promise<void> {
   }
 
   // Start content generation scheduler
-  startContentScheduler();
+  restartContentScheduler();
 
   app.listen(env.PORT, () => {
     logger.info(`Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
@@ -131,7 +96,7 @@ start().catch((err) => {
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
-  if (schedulerTask) schedulerTask.stop();
+  stopContentScheduler();
   await closeAllQueues().catch(() => {});
   process.exit(0);
 });
