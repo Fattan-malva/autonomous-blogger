@@ -201,6 +201,10 @@ export async function runFullPipeline(): Promise<PipelineResult> {
     logDone(blogResult.success, `Published: ${(blogResult.data?.url as string) || ''}`);
     result.postId = blogResult.data?.postId as string;
     result.url = blogResult.data?.url as string;
+    if (!blogResult.success || !result.url) {
+      result.error = 'Blogger publishing failed — no URL returned';
+      return result;
+    }
     result.stepsCompleted++;
     await sleep(STEP_DELAY_MS);
 
