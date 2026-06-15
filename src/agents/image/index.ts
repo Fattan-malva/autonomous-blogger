@@ -1,6 +1,7 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
 import { generateContent } from '../../providers/google-ai';
 import { jsonPrompt, safeParseJson } from '../../utils/json';
+import { ImagePlan, imageToHtml } from '../../utils/images';
 
 export class ImageAgent extends BaseAgent {
   constructor() {
@@ -36,7 +37,12 @@ For each image provide:
 Return a JSON array`);
 
     const result = await generateContent(prompt);
-    const images = safeParseJson<Array<Record<string, unknown>>>(result, []);
+    const plans: ImagePlan[] = safeParseJson(result, []) || [];
+
+    const images = plans.map((plan) => ({
+      ...plan,
+      html: imageToHtml(plan),
+    }));
 
     return { success: true, data: { images } };
   }

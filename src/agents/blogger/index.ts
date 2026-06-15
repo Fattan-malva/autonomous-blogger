@@ -47,6 +47,7 @@ export class BloggerAgent extends BaseAgent {
     adsterraLayout?: string
   ): Promise<AgentOutput> {
     let htmlContent = this.markdownToHtml(content);
+    const keyword = (labels || [])[0] || '';
 
     if (adsterraLayout) {
       htmlContent = this.injectAdsterra(htmlContent, adsterraLayout);
@@ -54,6 +55,8 @@ export class BloggerAgent extends BaseAgent {
 
     const seo = seoData as Record<string, unknown> | undefined;
     const finalTitle = seo?.metaTitle as string || title;
+
+    htmlContent = this.injectSEOMetadata(htmlContent, seo, title, keyword);
 
     const bloggerPost: BloggerPost = {
       title: finalTitle,
@@ -152,6 +155,34 @@ export class BloggerAgent extends BaseAgent {
     html = html.replace(/<li><\/li>/g, '');
 
     return html;
+  }
+
+  private injectSEOMetadata(html: string, seo: Record<string, unknown> | undefined, title: string, keyword: string): string {
+    const metaDescription = seo?.metaDescription as string || '';
+    const schemaMarkup = seo?.schemaMarkup as Record<string, unknown> | undefined;
+
+    let head = '';
+
+    if (metaDescription) {
+      head += `\n<meta name="description" content="${this.escapeHtml(metaDescription)}" />`;
+    }
+
+    if (schemaMarkup) {
+      head += `\n<script type="application/ld+json">${JSON.stringify(schemaMarkup)}</script>`;
+    }
+
+    const ogImage = seo?.openGraph as Record<string, unknown> | undefined;
+    if (ogImage?.image) {
+      head += `\n<meta property="og:image" content="${this.escapeHtml(ogImage.image as string)}" />`;
+    }
+
+    head += `\n<meta name="keywords" content="${this.escapeHtml(keyword)}" />`;
+
+    return head ? head + '\n' + html : html;
+  }
+
+  private escapeHtml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   private injectAdsterra(htmlContent: string, adLayoutJson: string): string {

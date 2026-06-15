@@ -148,6 +148,7 @@ export async function runFullPipeline(): Promise<PipelineResult> {
       content: finalContent,
       title: planTitle,
       keyword: firstTopic,
+      sections: JSON.stringify((planResult.data?.plan as Record<string, unknown>)?.outline || []),
     });
     logDone(seoResult.success, 'SEO metadata generated');
     result.stepsCompleted++;
@@ -162,13 +163,26 @@ export async function runFullPipeline(): Promise<PipelineResult> {
       title: planTitle,
     });
     logDone(imageResult.success, `Planned ${(imageResult.data?.images as Array<unknown>)?.length || 0} images`);
+    const imageList = (imageResult.data?.images as Array<Record<string, unknown>>) || [];
+    let contentWithImages = finalContent;
+    for (const img of imageList) {
+      const html = img.html as string;
+      const purpose = img.purpose as string;
+      if (purpose === 'featured') {
+        contentWithImages = html + '\n\n' + contentWithImages;
+      } else if (img.placement === 'after-introduction') {
+        contentWithImages = contentWithImages.replace('## Introduction', '## Introduction\n\n' + html);
+      } else {
+        contentWithImages = contentWithImages + '\n\n' + html;
+      }
+    }
     result.stepsCompleted++;
     await sleep(STEP_DELAY_MS);
 
     // STEP 11: ADSTERRA
     log('Adsterra — Generate Ad Layout');
     const adsterraAgent = new AdsterraAgent();
-    const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: finalContent });
+    const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: contentWithImages });
     const hasAds = !!(adResult.data?.layout as Record<string, unknown>)?.socialBarScript;
     logDone(adResult.success, hasAds ? 'Ad scripts generated' : 'No ADSTERRA_API_TOKEN configured');
     result.stepsCompleted++;
@@ -179,7 +193,7 @@ export async function runFullPipeline(): Promise<PipelineResult> {
     const bloggerAgent = new BloggerAgent();
     const blogResult = await bloggerAgent.run({
       action: 'publish',
-      content: finalContent,
+      content: contentWithImages,
       title: planTitle,
       labels: [firstCluster || 'general'],
       seoData: seoResult.data?.seo,
