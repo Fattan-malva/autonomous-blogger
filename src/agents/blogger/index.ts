@@ -212,7 +212,8 @@ export class BloggerAgent extends BaseAgent {
       }
 
       if (adScripts.nativeBanner) {
-        const faqIndex = result.lastIndexOf('<h3>FAQ');
+        let faqIndex = result.lastIndexOf('<h3>FAQ');
+        if (faqIndex < 0) faqIndex = result.lastIndexOf('<h2>FAQ');
         if (faqIndex > 0) {
           result = result.slice(0, faqIndex) + `\n${adScripts.nativeBanner}\n` + result.slice(faqIndex);
         }
