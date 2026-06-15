@@ -97,23 +97,51 @@ SEARCH_CONSOLE_CLIENT_ID=xxx.apps.googleusercontent.com
 SEARCH_CONSOLE_CLIENT_SECRET=GOCSPX-...
 ```
 
-### 4.2. Dapatkan Refresh Token
+### 4.2. Dapatkan Refresh Token (Langkah Detail)
 
-1. Buka https://developers.google.com/oauthplayground
-2. Gear icon → pakai credentials kamu
-3. Scope — **gabung kedua scope ini dalam satu baris** (pisah dengan spasi):
-   ```
-   https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/indexing
-   ```
-4. Authorize → login dengan Google account
-5. Exchange authorization code for tokens
-6. Copy **Refresh token**
+> ⚠️ **Harus regenerate refresh token** jika sebelumnya cuma pake scope `webmasters.readonly` doang. Indexing API butuh scope tambahan `indexing`.
 
-```
-SEARCH_CONSOLE_REFRESH_TOKEN=1//0g...
-```
+1. **Buka OAuth Playground**
+   - Buka https://developers.google.com/oauthplayground
+   - Hilangkan centang **"Auto-include basic Google scopes"** di toolbar kanan bawah
 
-> ⚠️ **PENTING**: Indexing API butuh scope `https://www.googleapis.com/auth/indexing`. Jika refresh token di-generate tanpa scope ini, Indexing step akan error 401 `unauthorized_client`. Kalau error tetap muncul, pastikan **Google Indexing API** sudah di-enable di https://console.cloud.google.com/apis/library/indexing.googleapis.com
+2. **Set OAuth Client credentials**
+   - Klik gear icon ⚙️ di kanan atas
+   - Centang **"Use your own OAuth credentials"**
+   - Isi:
+     - **OAuth Client ID**: `SEARCH_CONSOLE_CLIENT_ID` (dari `.env`)
+     - **OAuth Client Secret**: `SEARCH_CONSOLE_CLIENT_SECRET` (dari `.env`)
+   - Klik **Close**
+
+3. **Masukkan Scopes** (paling penting!)
+   - Di kolom **"Input your own scopes"**, paste persis ini (harus satu baris, pisah spasi):
+     ```
+     https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/indexing
+     ```
+   - Klik tombol **"Authorize APIs"**
+
+4. **Login & Authorize**
+   - Pilih Google account yang dipake buat Search Console
+   - Klik **Allow / Continue** (mungkin muncul peringatan "unverified app" — lanjutkan)
+   - Setelah authorize, URL akan berubah dan muncul **Authorization code** di panel kiri
+
+5. **Exchange Authorization Code ke Token**
+   - Klik tombol **"Exchange authorization code for tokens"** (biru, di panel kiri)
+   - Tunggu sampai response muncul di panel kanan
+   - Akan muncul JSON response dengan field `access_token` dan `refresh_token`
+
+6. **Copy Refresh Token**
+   - Salin nilai **refresh_token** dari response JSON (format: `1//0g...`)
+   - Isi ke `.env`:
+     ```
+     SEARCH_CONSOLE_REFRESH_TOKEN=1//0g...
+     ```
+
+> ⚠️ **Jika masih error 401 setelah regenerate**, berarti **Google Indexing API** belum di-enable di project Google Cloud Console. Enable manual:
+> 1. Buka https://console.cloud.google.com/apis/library/indexing.googleapis.com
+> 2. Pilih project yang sama
+> 3. Klik **Enable**
+> 4. Regenerate refresh token lagi dari langkah 1
 
 ### 4.3. Verifikasi Site di Search Console
 
