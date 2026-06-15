@@ -1,0 +1,204 @@
+# Setup Guide — Autonomous Blogger SEO Business
+
+## 1. Copy Environment File
+
+```bash
+cp .env.example .env
+```
+
+---
+
+## 2. Google AI Studio API Key
+
+Digunakan oleh semua agen AI (Research, Writer, SEO, dll).
+
+1. Buka https://aistudio.google.com/apikey
+2. Login dengan Google account
+3. Klik **Create API Key**
+4. Pilih project atau buat baru
+5. Copy key dan isi:
+
+```
+GOOGLE_AI_API_KEY=AIzaSy...
+GOOGLE_AI_MODEL=gemma-3-31b-it
+```
+
+> Bisa juga pakai `gemini-1.5-pro` atau `gemini-2.0-flash` jika ingin model Google.
+
+---
+
+## 3. Blogger API Credentials
+
+### 3.1. Dapatkan Blog ID
+
+1. Login ke https://www.blogger.com
+2. Buka blog kamu
+3. Lihat URL: `https://www.blogger.com/blog/posts/1234567890123456789`
+4. Angka terakhir adalah **Blog ID**
+
+```
+BLOGGER_BLOG_ID=1234567890123456789
+```
+
+### 3.2. Buat OAuth 2.0 Client ID
+
+1. Buka https://console.cloud.google.com
+2. Buat project baru (atau pilih existing)
+3. Pergi ke **APIs & Services > Library**
+4. Cari **Blogger API v3** → **Enable**
+5. Pergi ke **APIs & Services > Credentials**
+6. Klik **Create Credentials > OAuth client ID**
+7. Pilih **Web application**
+8. Authorized redirect URIs tambahkan:
+   - `http://localhost:3000`
+   - `https://developers.google.com/oauthplayground`
+9. Simpan, copy **Client ID** dan **Client Secret**
+
+```
+BLOGGER_CLIENT_ID=xxx.apps.googleusercontent.com
+BLOGGER_CLIENT_SECRET=GOCSPX-...
+```
+
+### 3.3. Dapatkan Refresh Token
+
+Menggunakan OAuth 2.0 Playground:
+
+1. Buka https://developers.google.com/oauthplayground
+2. Klik gear icon (⚙️) → centang **Use your own OAuth credentials**
+3. Masukkan Client ID dan Client Secret dari langkah sebelumnya
+4. Di **Step 1**, pilih scope: `https://www.googleapis.com/auth/blogger`
+5. Klik **Authorize APIs** → login dengan Google account
+6. Di **Step 2**, klik **Exchange authorization code for tokens**
+7. Copy **Refresh token**
+
+```
+BLOGGER_REFRESH_TOKEN=1//0g...
+```
+
+---
+
+## 4. Google Search Console API
+
+Digunakan oleh Analytics Agent dan Indexing Agent.
+
+### 4.1. Enable API
+
+1. Buka https://console.cloud.google.com
+2. **APIs & Services > Library**
+3. Cari dan enable:
+   - **Google Search Console API**
+   - **Google Indexing API**
+4. **APIs & Services > Credentials**
+5. Buat **OAuth client ID** (Web application)
+6. Copy Client ID dan Client Secret
+
+```
+SEARCH_CONSOLE_CLIENT_ID=xxx.apps.googleusercontent.com
+SEARCH_CONSOLE_CLIENT_SECRET=GOCSPX-...
+```
+
+### 4.2. Dapatkan Refresh Token
+
+1. Buka https://developers.google.com/oauthplayground
+2. Gear icon → pakai credentials kamu
+3. Scope: `https://www.googleapis.com/auth/webmasters.readonly`
+4. Authorize → Exchange code → Copy refresh token
+
+```
+SEARCH_CONSOLE_REFRESH_TOKEN=1//0g...
+```
+
+### 4.3. Verifikasi Site di Search Console
+
+1. Buka https://search.google.com/search-console
+2. Tambahkan property dengan URL blog kamu (blogspot domain)
+3. Ikuti verifikasi (biasanya otomatis untuk blogspot)
+
+---
+
+## 5. Adsterra
+
+1. Daftar/login ke https://publishers.adsterra.com
+2. **Settings > API** → copy **API Token**
+3. Isi `.env`:
+
+```
+ADSTERRA_API_TOKEN=your_adsterra_api_token
+```
+
+Semua script iklan (Social Bar, Native Banner, Display Banner, Popunder) akan di-generate otomatis dari token ini.
+
+---
+
+## 6. Database & Redis (Docker)
+
+Jika pakai Docker compose, biarkan default:
+
+```
+DATABASE_URL=postgres://blogger:blogger_password@postgres:5432/blogger_seo
+REDIS_URL=redis://redis:6379
+```
+
+Jika pakai lokal:
+
+```
+DATABASE_URL=postgres://user:password@localhost:5432/blogger_seo
+REDIS_URL=redis://localhost:6379
+```
+
+---
+
+## 7. Final .env Checklist
+
+```
+NODE_ENV=development
+PORT=3000
+
+DATABASE_URL=postgres://blogger:blogger_password@postgres:5432/blogger_seo
+REDIS_URL=redis://redis:6379
+
+GOOGLE_AI_API_KEY=AIzaSy...
+GOOGLE_AI_MODEL=gemma-3-31b-it
+
+BLOGGER_BLOG_ID=1234567890123456789
+BLOGGER_CLIENT_ID=xxx.apps.googleusercontent.com
+BLOGGER_CLIENT_SECRET=GOCSPX-...
+BLOGGER_REFRESH_TOKEN=1//0g...
+
+SEARCH_CONSOLE_CLIENT_ID=xxx.apps.googleusercontent.com
+SEARCH_CONSOLE_CLIENT_SECRET=GOCSPX-...
+SEARCH_CONSOLE_REFRESH_TOKEN=1//0g...
+
+ADSTERRA_API_TOKEN=your_adsterra_api_token
+
+LOG_LEVEL=info
+```
+
+---
+
+## 8. Menjalankan Project
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Build TypeScript
+npm run build
+
+# 3. Setup database (pastikan PostgreSQL running)
+npm run migrate
+
+# 4. Jalankan app
+npm start
+
+# Atau pakai Docker
+docker-compose up -d
+```
+
+### Mode Development
+
+```bash
+npm run dev          # Express server (port 3000)
+npm run worker       # Worker processes (terminal terpisah)
+npm run scheduler    # Scheduler (terminal terpisah)
+```
