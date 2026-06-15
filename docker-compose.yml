@@ -48,7 +48,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    command: ["node", "dist/services/scheduler/index.js"]
+    command: ["node", "dist/services/scheduler/run.js"]
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://blogger:blogger_password@postgres:5432/blogger_seo
