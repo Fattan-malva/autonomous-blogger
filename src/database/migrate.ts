@@ -179,6 +179,37 @@ async function migrate() {
     `);
 
     await db.execute(createTablesSQL);
+    logger.info('Tables created/verified');
+
+    // Add missing columns to existing tables (safe, idempotent)
+    try {
+      await db.execute(sql.raw(`
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS trend_score INTEGER DEFAULT 0;
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS monetization_score INTEGER DEFAULT 0;
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS content_type VARCHAR(50);
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS reason TEXT;
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMP;
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS intent VARCHAR(50);
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS difficulty DECIMAL(5,2);
+        ALTER TABLE topics ADD COLUMN IF NOT EXISTS search_volume INTEGER;
+        ALTER TABLE articles ADD COLUMN IF NOT EXISTS excerpt TEXT;
+        ALTER TABLE articles ADD COLUMN IF NOT EXISTS readability_score DECIMAL(5,2);
+        ALTER TABLE articles ADD COLUMN IF NOT EXISTS quality_score DECIMAL(5,2);
+        ALTER TABLE articles ADD COLUMN IF NOT EXISTS blogger_post_id VARCHAR(255);
+        ALTER TABLE articles ADD COLUMN IF NOT EXISTS blogger_url VARCHAR(1000);
+        ALTER TABLE analytics ADD COLUMN IF NOT EXISTS ctr DECIMAL(8,4);
+        ALTER TABLE analytics ADD COLUMN IF NOT EXISTS position DECIMAL(5,2);
+        ALTER TABLE revenues ADD COLUMN IF NOT EXISTS source VARCHAR(100);
+        ALTER TABLE revenues ADD COLUMN IF NOT EXISTS rpm DECIMAL(10,4);
+        ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS duration_ms INTEGER;
+        ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+        ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS output JSONB;
+      `));
+      logger.info('Missing columns added');
+    } catch (colError: any) {
+      logger.warn('Some columns could not be added (may already exist): ' + colError.message);
+    }
+
     logger.info('Migrations completed successfully');
     process.exit(0);
   } catch (error) {

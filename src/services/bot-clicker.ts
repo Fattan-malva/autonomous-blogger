@@ -53,6 +53,8 @@ let botStartedAt: string | null = null;
 let browserInstance: Browser | null = null;
 
 function rand(min: number, max: number): number {
+  if (min > max) { const t = min; min = max; max = t; }
+  if (max === min) return min;
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 

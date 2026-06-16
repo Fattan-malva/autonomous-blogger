@@ -1784,6 +1784,20 @@
                   class="form-input" id="botAdChance" value="0.15" step="0.05" style="width:70px"></div>
               <div class="form-group"><span class="form-label">Int Link Chance</span><input type="number"
                   class="form-input" id="botIntChance" value="0.20" step="0.05" style="width:70px"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><span class="form-label">Read Time Min (s)</span><input type="number"
+                  class="form-input" id="botReadMin" value="15" style="width:70px"></div>
+              <div class="form-group"><span class="form-label">Read Time Max (s)</span><input type="number"
+                  class="form-input" id="botReadMax" value="90" style="width:70px"></div>
+              <div class="form-group"><span class="form-label">Visitor Delay Min (s)</span><input type="number"
+                  class="form-input" id="botVisitDelayMin" value="30" style="width:70px"></div>
+              <div class="form-group"><span class="form-label">Visitor Delay Max (s)</span><input type="number"
+                  class="form-input" id="botVisitDelayMax" value="180" style="width:70px"></div>
+              <div class="form-group"><span class="form-label">Between Clicks Min (s)</span><input type="number"
+                  class="form-input" id="botBetweenMin" value="5" style="width:70px"></div>
+              <div class="form-group"><span class="form-label">Between Clicks Max (s)</span><input type="number"
+                  class="form-input" id="botBetweenMax" value="45" style="width:70px"></div>
               <button class="btn btn-primary" onclick="saveBotConfig()"><i
                   class="ti ti-device-floppy" style="font-size:14px"></i> Save Config</button>
             </div>
@@ -2413,6 +2427,12 @@
         document.getElementById('botClickMax').value = cfg.clicksPerVisitorMax || 3;
         document.getElementById('botAdChance').value = cfg.adClickChance || 0.15;
         document.getElementById('botIntChance').value = cfg.internalLinkChance || 0.2;
+        document.getElementById('botReadMin').value = (cfg.readTimeMin || 15000) / 1000;
+        document.getElementById('botReadMax').value = (cfg.readTimeMax || 90000) / 1000;
+        document.getElementById('botVisitDelayMin').value = (cfg.visitorDelayMin || 30000) / 1000;
+        document.getElementById('botVisitDelayMax').value = (cfg.visitorDelayMax || 180000) / 1000;
+        document.getElementById('botBetweenMin').value = (cfg.betweenClicksMin || 5000) / 1000;
+        document.getElementById('botBetweenMax').value = (cfg.betweenClicksMax || 45000) / 1000;
       } catch {}
     }
 
@@ -2434,10 +2454,28 @@
     }
 
     async function saveBotConfig() {
+      const clickMin = parseInt(document.getElementById('botClickMin').value) || 0;
+      const clickMax = parseInt(document.getElementById('botClickMax').value) || 3;
+      const readMin = (parseFloat(document.getElementById('botReadMin').value) || 15) * 1000;
+      const readMax = (parseFloat(document.getElementById('botReadMax').value) || 90) * 1000;
+      const delayMin = (parseFloat(document.getElementById('botVisitDelayMin').value) || 30) * 1000;
+      const delayMax = (parseFloat(document.getElementById('botVisitDelayMax').value) || 180) * 1000;
+      const betweenMin = (parseFloat(document.getElementById('botBetweenMin').value) || 5) * 1000;
+      const betweenMax = (parseFloat(document.getElementById('botBetweenMax').value) || 45) * 1000;
+      if (clickMin > clickMax) { showToast('Clicks min cannot exceed max', 'error'); return; }
+      if (readMin > readMax) { showToast('Read time min cannot exceed max', 'error'); return; }
+      if (delayMin > delayMax) { showToast('Visitor delay min cannot exceed max', 'error'); return; }
+      if (betweenMin > betweenMax) { showToast('Between clicks min cannot exceed max', 'error'); return; }
       const body = {
         totalVisitors: parseInt(document.getElementById('botTotal').value) || 100,
-        clicksPerVisitorMin: parseInt(document.getElementById('botClickMin').value) || 0,
-        clicksPerVisitorMax: parseInt(document.getElementById('botClickMax').value) || 3,
+        clicksPerVisitorMin: clickMin,
+        clicksPerVisitorMax: clickMax,
+        readTimeMin: readMin,
+        readTimeMax: readMax,
+        visitorDelayMin: delayMin,
+        visitorDelayMax: delayMax,
+        betweenClicksMin: betweenMin,
+        betweenClicksMax: betweenMax,
         adClickChance: parseFloat(document.getElementById('botAdChance').value) || 0.15,
         internalLinkChance: parseFloat(document.getElementById('botIntChance').value) || 0.2,
       };
