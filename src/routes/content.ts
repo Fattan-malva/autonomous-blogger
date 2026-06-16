@@ -194,4 +194,64 @@ router.get('/jobs', (_req: Request, res: Response) => {
   });
 });
 
+// Bot control
+import { getBotStatus, startBot, stopBot, getClickStats } from '../services/bot-clicker';
+import { getBotConfig, updateBotConfig } from '../services/bot-config';
+
+router.get('/bot/status', (_req: Request, res: Response) => {
+  res.json(getBotStatus());
+});
+
+router.post('/bot/start', async (_req: Request, res: Response) => {
+  const status = getBotStatus();
+  if (status.running) {
+    return res.status(409).json({ error: 'Bot already running' });
+  }
+  // Don't await — run in background
+  startBot().catch(err => console.error('Bot error:', err));
+  res.json({ success: true, message: 'Bot started' });
+});
+
+router.post('/bot/stop', async (_req: Request, res: Response) => {
+  await stopBot();
+  res.json({ success: true, message: 'Bot stop requested' });
+});
+
+router.get('/bot/config', (_req: Request, res: Response) => {
+  res.json(getBotConfig());
+});
+
+router.post('/bot/config', (req: Request, res: Response) => {
+  const config = updateBotConfig(req.body);
+  res.json(config);
+});
+
+router.get('/bot/stats', (_req: Request, res: Response) => {
+  res.json(getClickStats(30));
+});
+
+// Overview data (no DB needed)
+router.get('/overview', (_req: Request, res: Response) => {
+  const { existsSync, readdirSync } = require('fs');
+  const resultDir = resolve(__dirname, '../../result');
+  const files = existsSync(resultDir) ? readdirSync(resultDir).filter((f: string) => f.endsWith('.html')) : [];
+  const statuses = getAllStatuses();
+  const posted = Object.values(statuses).filter((s: any) => s.posted).length;
+  const botStats = getClickStats(30);
+
+  res.json({
+    articles: {
+      total: files.length,
+      published: posted,
+      drafts: files.length - posted,
+    },
+    bot: {
+      running: getBotStatus().running,
+      todayClicks: getBotStatus().adClicksToday,
+      totalClicks: botStats.totalAdClicks,
+      totalSessions: botStats.totalSessions,
+    },
+  });
+});
+
 export default router;

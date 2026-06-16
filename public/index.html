@@ -137,6 +137,10 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
     <svg class="icon" viewBox="0 0 16 16"><path d="M6.25 1.75a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm2.5 0a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Zm2.5 0a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5ZM3.5 4.75a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3.5-1a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3.5-1a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-7 3.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Zm0 3.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Zm0 3.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Z"/></svg>
     Queues
   </a>
+  <a onclick="switchTab('bot')">
+    <svg class="icon" viewBox="0 0 16 16"><path d="M6.5 1.75a.25.25 0 0 1 .25-.25h2.5a.25.25 0 0 1 .25.25V3h-3ZM4.995 3.5h-.098H3.75a.75.75 0 0 0 0 1.5h.25l.816 8.997A1.75 1.75 0 0 0 6.56 15h2.88a1.75 1.75 0 0 0 1.744-1.503l.816-8.997h.25a.75.75 0 0 0 0-1.5h-1.148h-.098H4.995Z"/></svg>
+    Bot
+  </a>
 </nav>
 <main>
   <!-- OVERVIEW -->
@@ -231,6 +235,57 @@ label { font-size: 13px; color: #8b949e; margin-bottom: 4px; display: block; }
   <div id="section-queues" class="section">
     <div style="overflow-x:auto"><table><thead><tr><th>Queue</th><th>Waiting</th><th>Active</th><th>Completed</th><th>Failed</th><th>Delayed</th></tr></thead><tbody id="queuesBody"></tbody></table></div>
   </div>
+
+  <!-- BOT -->
+  <div id="section-bot" class="section">
+    <div class="cards" id="botStatsCards">
+      <div class="card"><div class="label">Status</div><div class="value orange" id="botStatus">-</div><div class="sub" id="botStatusSub">Idle</div></div>
+      <div class="card"><div class="label">Today Clicks</div><div class="value blue" id="botTodayClicks">0</div><div class="sub">ad clicks today</div></div>
+      <div class="card"><div class="label">Total Sessions</div><div class="value green" id="botTotalSessions">0</div><div class="sub">visitors processed</div></div>
+      <div class="card"><div class="label">Progress</div><div class="value purple" id="botProgress">0%</div><div class="sub" id="botProgressSub">0 / 0 visitors</div></div>
+    </div>
+    <div class="btn-group mb16">
+      <button class="btn btn-primary" id="botStartBtn" onclick="startBot()">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M5.455 2.634c.246-.287.654-.337.953-.116l5.858 4.327c.31.23.31.704 0 .933l-5.858 4.327c-.299.221-.707.17-.953-.116a.641.641 0 0 1-.13-.412V3.046c0-.15.048-.298.13-.412Z"/></svg>
+        Start Bot
+      </button>
+      <button class="btn btn-danger" id="botStopBtn" onclick="stopBot()" disabled>
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M3 3.75A.75.75 0 0 1 3.75 3h8.5a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-.75.75h-8.5a.75.75 0 0 1-.75-.75Z"/></svg>
+        Stop Bot
+      </button>
+    </div>
+    <h2 style="margin-bottom:12px">Bot Config</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Total Visitors</label>
+        <input type="number" id="botTotalVisitors" min="1" max="500" value="100" style="width:80px" />
+      </div>
+      <div class="form-group">
+        <label>Clicks / Visitor (min)</label>
+        <input type="number" id="botClickMin" min="1" max="50" value="5" style="width:70px" />
+      </div>
+      <div class="form-group">
+        <label>Clicks / Visitor (max)</label>
+        <input type="number" id="botClickMax" min="1" max="50" value="15" style="width:70px" />
+      </div>
+      <div class="form-group">
+        <label>Ad Click Chance</label>
+        <input type="number" id="botAdChance" min="0" max="1" step="0.1" value="0.4" style="width:70px" />
+      </div>
+      <div class="form-group">
+        <label>Int Link Chance</label>
+        <input type="number" id="botIntChance" min="0" max="1" step="0.1" value="0.3" style="width:70px" />
+      </div>
+      <button class="btn btn-primary" onclick="saveBotConfig()">
+        <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16H3.75A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V4.664a.25.25 0 0 0-.073-.177l-2.914-2.914a.25.25 0 0 0-.177-.073H3.75ZM8 5.75a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5V6.5a.75.75 0 0 1 .75-.75Z"/></svg>
+        Save Config
+      </button>
+    </div>
+    <h2 style="margin-top:24px;margin-bottom:12px">Click Log (30 days)</h2>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>Date</th><th>Sessions</th><th>Ad Clicks</th><th>Int. Clicks</th><th>Errors</th><th>Duration</th></tr></thead><tbody id="botLogBody"></tbody></table>
+    </div>
+  </div>
 </main>
 
 <!-- Preview Modal -->
@@ -270,13 +325,14 @@ function switchTab(name) {
   document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
   document.getElementById('section-' + name).classList.add('active');
   document.querySelectorAll('nav a').forEach(a => { if (a.textContent.trim().toLowerCase().includes(name)) a.classList.add('active'); });
-  if (name === 'overview') { loadOverview(); loadRecentContent(); }
+  if (name === 'overview') { loadOverview(); loadRecentContent(); pollTimers.overview = setInterval(() => { loadOverview(); loadRecentContent(); }, 10000); }
   if (name === 'content') loadContent();
   if (name === 'generate') loadGenerateTab();
   if (name === 'analytics') loadAnalytics();
   if (name === 'revenue') loadRevenue();
   if (name === 'runs') { loadRuns(); pollTimers.runs = setInterval(loadRuns, 5000); }
   if (name === 'queues') { loadQueues(); pollTimers.queues = setInterval(loadQueues, 5000); }
+  if (name === 'bot') { loadBotTab(); pollTimers.bot = setInterval(loadBotTab, 5000); }
 }
 
 async function api(path, opts) {
@@ -301,23 +357,14 @@ function showToast(msg, type) {
 // ===== OVERVIEW =====
 async function loadOverview() {
   try {
-    const data = await api('/api/dashboard/summary');
-    const s = data.scheduler || [];
+    const data = await api('/api/content/overview');
     document.getElementById('summaryCards').innerHTML = `
       <div class="card"><div class="label">Articles</div><div class="value blue">${fmtNum(data.articles.total)}</div><div class="sub">${data.articles.published} published · ${data.articles.drafts} drafts</div></div>
-      <div class="card"><div class="label">Topics</div><div class="value green">${fmtNum(data.topics)}</div><div class="sub">${data.pipelines24h} pipelines today</div></div>
-      <div class="card"><div class="label">Impressions</div><div class="value orange">${fmtNum(data.analytics.total_impressions)}</div><div class="sub">${fmtNum(data.analytics.total_clicks)} clicks total</div></div>
-      <div class="card"><div class="label">Revenue</div><div class="value purple">${fmtMoney(data.analytics.total_revenue)}</div><div class="sub">${data.errorLogs} errors logged</div></div>
+      <div class="card"><div class="label">Bot Clicks Today</div><div class="value orange">${fmtNum(data.bot.todayClicks)}</div><div class="sub">${fmtNum(data.bot.totalClicks)} total all-time</div></div>
+      <div class="card"><div class="label">Bot Status</div><div class="value ${data.bot.running ? 'green' : 'purple'}">${data.bot.running ? 'Running' : 'Idle'}</div><div class="sub">${fmtNum(data.bot.totalSessions)} total sessions</div></div>
+      <div class="card"><div class="label">Published</div><div class="value green">${fmtNum(data.articles.published)}</div><div class="sub">${fmtNum(data.articles.drafts)} drafts remaining</div></div>
     `;
-    if (statusChart) statusChart.destroy();
-    if (document.getElementById('statusChart')) {
-      const ctx2 = document.getElementById('statusChart').getContext('2d');
-      statusChart = new Chart(ctx2, {
-        type: 'doughnut', data: { labels: s.map(r => r.status), datasets: [{ data: s.map(r => r.count), backgroundColor: ['#3fb950','#f85149','#d29922','#8b949e','#58a6ff'] }] },
-        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#8b949e' } }, title: { display: true, text: 'Pipeline Results (7d)', color: '#e6edf3' } } }
-      });
-    }
-  } catch { document.getElementById('summaryCards').innerHTML = '<div class="card"><div class="label">Status</div><div class="value orange">DB Offline</div><div class="sub">Limited view</div></div>'; }
+  } catch { document.getElementById('summaryCards').innerHTML = '<div class="card"><div class="label">Status</div><div class="value orange">Loading...</div><div class="sub">Waiting for data</div></div>'; }
 }
 
 async function loadRecentContent() {
@@ -622,6 +669,93 @@ async function loadQueues() {
     document.getElementById('queuesBody').innerHTML =
       `<tr><td><strong>Generation</strong></td><td>-</td><td>${stats.active}</td><td>${stats.completed}</td><td>${stats.failed}</td><td>-</td></tr>`;
   } catch { document.getElementById('queuesBody').innerHTML = '<tr><td colspan="6" class="empty">No queue data</td></tr>'; }
+}
+
+// ===== BOT =====
+async function loadBotTab() {
+  try {
+    const [status, stats] = await Promise.all([
+      api('/api/content/bot/status'),
+      api('/api/content/bot/stats'),
+    ]);
+    document.getElementById('botStatus').textContent = status.running ? 'Running' : 'Idle';
+    document.getElementById('botStatus').className = 'value ' + (status.running ? 'green' : 'orange');
+    document.getElementById('botStatusSub').textContent = status.running
+      ? 'Started: ' + new Date(status.startedAt).toLocaleTimeString()
+      : 'Ready';
+    document.getElementById('botTodayClicks').textContent = fmtNum(status.adClicksToday);
+    document.getElementById('botTotalSessions').textContent = fmtNum(stats.totalSessions);
+    const pct = status.totalVisitors > 0 ? Math.round((status.currentVisitor / status.totalVisitors) * 100) : 0;
+    document.getElementById('botProgress').textContent = status.running ? pct + '%' : '-';
+    document.getElementById('botProgressSub').textContent = status.running
+      ? status.currentVisitor + ' / ' + status.totalVisitors + ' visitors'
+      : 'Not running';
+    document.getElementById('botStartBtn').disabled = status.running;
+    document.getElementById('botStopBtn').disabled = !status.running;
+
+    // Click log table
+    const daily = stats.daily || [];
+    document.getElementById('botLogBody').innerHTML = daily.length
+      ? daily.slice().reverse().map(d => `
+        <tr>
+          <td>${esc(d.date)}</td>
+          <td>${fmtNum(d.sessions)}</td>
+          <td>${fmtNum(d.adClicks)}</td>
+          <td>${fmtNum(d.internalClicks)}</td>
+          <td>${fmtNum(d.errors)}</td>
+          <td>${d.durationMs ? (d.durationMs / 1000 / 60).toFixed(1) + 'm' : '-'}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">No click data yet</td></tr>';
+  } catch {}
+  loadBotConfig();
+}
+
+async function loadBotConfig() {
+  try {
+    const cfg = await api('/api/content/bot/config');
+    document.getElementById('botTotalVisitors').value = cfg.totalVisitors || 100;
+    document.getElementById('botClickMin').value = cfg.clicksPerVisitorMin || 5;
+    document.getElementById('botClickMax').value = cfg.clicksPerVisitorMax || 15;
+    document.getElementById('botAdChance').value = cfg.adClickChance || 0.4;
+    document.getElementById('botIntChance').value = cfg.internalLinkChance || 0.3;
+  } catch {}
+}
+
+async function startBot() {
+  if (!confirm('Start bot clicker? Browser akan dibuka headless untuk ' + document.getElementById('botTotalVisitors').value + ' visitors.')) return;
+  try {
+    const result = await api('/api/content/bot/start', { method: 'POST' });
+    showToast('Bot started', 'success');
+    loadBotTab();
+  } catch (e) {
+    showToast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function stopBot() {
+  try {
+    const result = await api('/api/content/bot/stop', { method: 'POST' });
+    showToast('Bot stopped', 'success');
+    loadBotTab();
+  } catch (e) {
+    showToast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function saveBotConfig() {
+  try {
+    const body = {
+      totalVisitors: parseInt(document.getElementById('botTotalVisitors').value) || 100,
+      clicksPerVisitorMin: parseInt(document.getElementById('botClickMin').value) || 5,
+      clicksPerVisitorMax: parseInt(document.getElementById('botClickMax').value) || 15,
+      adClickChance: parseFloat(document.getElementById('botAdChance').value) || 0.4,
+      internalLinkChance: parseFloat(document.getElementById('botIntChance').value) || 0.3,
+    };
+    await api('/api/content/bot/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    showToast('Bot config saved', 'success');
+  } catch (e) {
+    showToast('Failed: ' + e.message, 'error');
+  }
 }
 
 // ===== AUTO REFRESH =====

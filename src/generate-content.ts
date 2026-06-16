@@ -8,7 +8,7 @@ import { ImageAgent } from './agents/image';
 import { AdsterraAgent } from './agents/adsterra';
 import { initGoogleAI } from './providers/google-ai';
 import { jsonPrompt, safeParseJson } from './utils/json';
-import { imageToHtml, imageUrlFromKeyword } from './utils/images';
+import { imageToHtml } from './utils/images';
 
 const RESULT_DIR = resolve(__dirname, '../result');
 
@@ -71,7 +71,8 @@ function markdownToHtml(md: string): string {
 
   html = html.replace(/%%CODEBLOCK_(\d+)%%/g, (_, idx) => codeBlocks[parseInt(idx)]);
 
-  html = html.replace(/(<(?:pre|blockquote|table|hr|h[1-4]|ul|ol)[^>]*>)/g, '</p>$1');
+  html = html.replace(/(<(?:pre|blockquote|table|h[1-4]|ul|ol)[^>]*>)/g, '</p>$1');
+  html = html.replace(/<\/p><hr\s*\/?>/g, '<hr />');
   html = html.replace(/(<\/(?:pre|blockquote|table|h[1-4]|ul|ol)>)/g, '$1<p>');
   html = html.replace(/<p><\/p>/g, '');
 
@@ -164,10 +165,6 @@ Return a JSON object`);
   // --- Assemble HTML ---
   const metaTitle = (seo?.metaTitle as string) || keyword;
   const metaDescription = (seo?.metaDescription as string) || '';
-  const canonicalUrl = (seo?.canonicalUrl as string) || '';
-  const openGraph = (seo?.openGraph as Record<string, string>) || {};
-  const twitterCard = (seo?.twitterCard as Record<string, string>) || {};
-  const schemaMarkup = seo?.schemaMarkup as Record<string, unknown> | undefined;
 
   let htmlContent = markdownToHtml(rawContent);
 
@@ -223,71 +220,24 @@ Return a JSON object`);
     }
   }
 
-  // Featured image URL for OG/Twitter
-  const featuredImg = imageList.find(i => i.purpose === 'featured');
-  const ogImageUrl = featuredImg?.src as string || imageUrlFromKeyword(keyword, 'featured');
-
-  // Build complete HTML head
-  const headLines: string[] = [
-    '<!DOCTYPE html>',
-    '<html lang="en">',
-    '<head>',
-    `<meta charset="UTF-8" />`,
-    `<meta name="viewport" content="width=device-width, initial-scale=1.0" />`,
-    `<title>${escapeHtml(metaTitle)} — Fattan Dev</title>`,
-    `<meta name="robots" content="index, follow" />`,
-  ];
-
-  if (metaDescription) {
-    headLines.push(`<meta name="description" content="${escapeHtml(metaDescription)}" />`);
-    headLines.push(`<meta name="twitter:description" content="${escapeHtml(twitterCard.description || metaDescription)}" />`);
-    headLines.push(`<meta property="og:description" content="${escapeHtml(openGraph.description || metaDescription)}" />`);
-  }
-
-  headLines.push(`<meta name="keywords" content="${escapeHtml(keyword)}" />`);
-  headLines.push(`<meta property="og:title" content="${escapeHtml(openGraph.title || metaTitle)}" />`);
-  headLines.push(`<meta property="og:type" content="article" />`);
-  headLines.push(`<meta property="og:site_name" content="Fattan Dev" />`);
-  headLines.push(`<meta property="og:image" content="${escapeHtml(openGraph.image || ogImageUrl)}" />`);
-  headLines.push(`<meta name="twitter:card" content="summary_large_image" />`);
-  headLines.push(`<meta name="twitter:title" content="${escapeHtml(twitterCard.title || metaTitle)}" />`);
-  headLines.push(`<meta name="twitter:image" content="${escapeHtml(twitterCard.image || ogImageUrl)}" />`);
-
-  if (canonicalUrl) {
-    headLines.push(`<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`);
-  }
-
-  if (schemaMarkup) {
-    // Add image, datePublished, dateModified to schema if missing
-    const enhancedSchema = { ...schemaMarkup };
-    if (!enhancedSchema.datePublished) enhancedSchema.datePublished = new Date().toISOString().split('T')[0];
-    if (!enhancedSchema.dateModified) enhancedSchema.dateModified = new Date().toISOString().split('T')[0];
-    if (!enhancedSchema.image) enhancedSchema.image = ogImageUrl;
-    if (!enhancedSchema.url) enhancedSchema.url = canonicalUrl;
-    headLines.push(`<script type="application/ld+json">${JSON.stringify(enhancedSchema)}</script>`);
-  }
-
-  headLines.push('</head>');
-  headLines.push('<body>');
+  // Build body content (theme handles all <head> SEO tags)
+  const bodyParts: string[] = [];
 
   if (adScripts.socialBar) {
-    headLines.push(adScripts.socialBar);
+    bodyParts.push(adScripts.socialBar);
   }
 
   if (metaDescription) {
-    headLines.push(`<p><em>${escapeHtml(metaDescription)}</em></p>`);
+    bodyParts.push(`<p><em>${escapeHtml(metaDescription)}</em></p>`);
   }
 
-  headLines.push(htmlContent);
+  bodyParts.push(htmlContent);
 
   if (adScripts.popunder) {
-    headLines.push(adScripts.popunder);
+    bodyParts.push(adScripts.popunder);
   }
 
-  headLines.push('</body>');
-  headLines.push('</html>');
-
-  const finalHtml = headLines.join('\n');
+  const finalHtml = bodyParts.join('\n');
 
   // Save to result/
   mkdirSync(RESULT_DIR, { recursive: true });

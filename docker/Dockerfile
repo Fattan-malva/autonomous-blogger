@@ -11,6 +11,10 @@ RUN mkdir -p images && npm run build
 
 FROM node:20-alpine
 
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./

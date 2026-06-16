@@ -6,5 +6,7 @@ logs/
 images/*
 !images/.gitkeep
 data/content-status.json
+data/click-log.json
+data/bot-config.json
 result/
 .DS_Store

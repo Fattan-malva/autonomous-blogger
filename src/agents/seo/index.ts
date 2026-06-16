@@ -28,10 +28,6 @@ Content preview: ${content.substring(0, 500)}
 Provide:
 - metaTitle: string (max 60 chars, engaging SEO title)
 - metaDescription: string (max 160 chars, compelling meta description with keyword)
-- canonicalUrl: string (full URL using format: https://fattan-dev.blogspot.com/YYYY/MM/url-slug.html)
-- openGraph: { title: string, description: string, image: string }
-- twitterCard: { title: string, description: string }
-- schemaMarkup: { "@context": "https://schema.org", "@type": "BlogPosting", ... }
 
 Return a JSON object`);
 
