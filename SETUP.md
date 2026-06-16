@@ -234,6 +234,9 @@ npm start
 
 ```bash
 docker-compose up -d
+
+#Jika ada Update
+docker compose build --no-cache app && docker compose run --rm app node dist/database/migrate.js && docker compose up -d --force-recreate app nginx && docker rm -f autonomous-blogger-scheduler-1 autonomous-blogger-worker-1 && docker compose run -d --name autonomous-blogger-scheduler-1 app node dist/services/scheduler/run.js && docker compose run -d --name autonomous-blogger-worker-1 app node dist/workers/index.js
 ```
 
 ### Manual Trigger & Scheduler
