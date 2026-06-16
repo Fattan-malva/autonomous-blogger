@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../database/connection';
-import { sql } from 'drizzle-orm';
+import { sql, and, eq, desc } from 'drizzle-orm';
 import { getQueueJobCounts, QueueName } from '../services/queue';
+import { topics, researchPackages, seoPackages, errorLogs, articles } from '../database/schema';
 
 const router = Router();
 
@@ -177,6 +178,143 @@ router.get('/queues', async (_req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// NEW: Topics endpoint
+router.get('/topics', async (req: Request, res: Response) => {
+  try {
+    const status = req.query.status as string;
+    const cluster = req.query.cluster as string;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const filters = [];
+    if (status) filters.push(eq(topics.status, status));
+    if (cluster) filters.push(eq(topics.cluster, cluster));
+
+    const result = await db.select().from(topics)
+      .where(filters.length > 0 ? and(...filters) : undefined)
+      .orderBy(desc(topics.trendScore))
+      .limit(limit)
+      .offset(offset)
+      .execute();
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: Research package endpoint
+router.get('/research/:topicId', async (req: Request, res: Response) => {
+  try {
+    const topicId = parseInt(req.params.topicId);
+    const result = await db.select().from(researchPackages).where(eq(researchPackages.topicId, topicId)).orderBy(desc(researchPackages.createdAt)).limit(1).execute();
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'Research package not found' });
+    }
+    res.json(result[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: SEO package endpoint
+router.get('/seo/:articleId', async (req: Request, res: Response) => {
+  try {
+    const articleId = parseInt(req.params.articleId);
+    const result = await db.select().from(seoPackages).where(eq(seoPackages.articleId, articleId)).orderBy(desc(seoPackages.createdAt)).limit(1).execute();
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'SEO package not found' });
+    }
+    res.json(result[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: Error logs endpoint
+router.get('/errors', async (req: Request, res: Response) => {
+  try {
+    const agent = req.query.agent as string;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const filters = [];
+    if (agent) filters.push(eq(errorLogs.agent, agent));
+
+    const result = await db.select().from(errorLogs)
+      .where(filters.length > 0 ? and(...filters) : undefined)
+      .orderBy(desc(errorLogs.createdAt))
+      .limit(limit)
+      .offset(offset)
+      .execute();
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: Articles with SEO metadata
+router.get('/articles-with-seo', async (_req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        a.id, a.title, a.slug, a.status, a.blogger_url, a.word_count,
+        s.meta_title, s.meta_description, s.canonical_url,
+        s.open_graph, s.twitter_cards, s.schema_markup
+      FROM articles a
+      LEFT JOIN seo_packages s ON s.article_id = a.id
+      ORDER BY a.created_at DESC
+      LIMIT 100
+    `);
+    res.json(result.rows || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Pipeline progress state
+let pipelineProgress = {
+  running: false,
+  step: 0,
+  totalSteps: 13,
+  stepName: '',
+  agent: '',
+  status: 'idle' as 'idle' | 'running' | 'completed' | 'failed',
+  startedAt: null as string | null,
+  completedAt: null as string | null,
+  error: null as string | null,
+};
+
+export function setPipelineProgress(step: number, stepName: string, agent: string) {
+  pipelineProgress.step = step;
+  pipelineProgress.stepName = stepName;
+  pipelineProgress.agent = agent;
+  pipelineProgress.status = 'running';
+}
+
+export function startPipelineProgress() {
+  pipelineProgress.running = true;
+  pipelineProgress.step = 0;
+  pipelineProgress.stepName = '';
+  pipelineProgress.agent = '';
+  pipelineProgress.status = 'running';
+  pipelineProgress.startedAt = new Date().toISOString();
+  pipelineProgress.completedAt = null;
+  pipelineProgress.error = null;
+}
+
+export function completePipelineProgress(error?: string) {
+  pipelineProgress.running = false;
+  pipelineProgress.status = error ? 'failed' : 'completed';
+  pipelineProgress.completedAt = new Date().toISOString();
+  pipelineProgress.error = error || null;
+}
+
+router.get('/pipeline-progress', (_req: Request, res: Response) => {
+  res.json(pipelineProgress);
 });
 
 export default router;

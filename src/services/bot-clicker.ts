@@ -7,7 +7,7 @@ import { logger } from '../config/logger';
 
 puppeteer.use(StealthPlugin());
 
-const BLOG_URL = 'https://fattan-dev.blogspot.com';
+const BLOG_URL = process.env.BLOG_URL || 'https://fattan-dev.blogspot.com';
 const SITEMAP_URL = `${BLOG_URL}/sitemap.xml`;
 
 const AD_SELECTORS = [

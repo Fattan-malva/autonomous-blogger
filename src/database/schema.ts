@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, varchar, jsonb, boolean, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, integer, timestamp, varchar, jsonb, boolean, decimal, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const topics = pgTable('topics', {
   id: serial('id').primaryKey(),
@@ -114,7 +114,9 @@ export const analytics = pgTable('analytics', {
   ctr: decimal('ctr', { precision: 8, scale: 4 }),
   position: decimal('position', { precision: 5, scale: 2 }),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => ({
+  articleDateIdx: uniqueIndex('idx_analytics_article_date').on(table.articleId, table.date),
+}));
 
 export const revenues = pgTable('revenues', {
   id: serial('id').primaryKey(),
@@ -124,7 +126,9 @@ export const revenues = pgTable('revenues', {
   source: varchar('source', { length: 100 }),
   rpm: decimal('rpm', { precision: 10, scale: 4 }),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => ({
+  articleDateSourceIdx: uniqueIndex('idx_revenues_article_date_source').on(table.articleId, table.date, table.source),
+}));
 
 export const publishingLogs = pgTable('publishing_logs', {
   id: serial('id').primaryKey(),

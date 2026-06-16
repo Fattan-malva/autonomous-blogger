@@ -121,7 +121,8 @@ async function migrate() {
         impressions INTEGER DEFAULT 0,
         ctr DECIMAL(8,4),
         position DECIMAL(5,2),
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (article_id, date)
       );
 
       CREATE TABLE IF NOT EXISTS revenues (
@@ -131,7 +132,8 @@ async function migrate() {
         amount DECIMAL(12,4),
         source VARCHAR(100),
         rpm DECIMAL(10,4),
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (article_id, date, source)
       );
 
       CREATE TABLE IF NOT EXISTS publishing_logs (
@@ -171,7 +173,9 @@ async function migrate() {
       CREATE INDEX IF NOT EXISTS idx_topics_cluster ON topics(cluster);
       CREATE INDEX IF NOT EXISTS idx_analytics_date ON analytics(date);
       CREATE INDEX IF NOT EXISTS idx_analytics_article ON analytics(article_id);
+      CREATE INDEX IF NOT EXISTS idx_analytics_article_date ON analytics(article_id, date);
       CREATE INDEX IF NOT EXISTS idx_revenues_date ON revenues(date);
+      CREATE INDEX IF NOT EXISTS idx_revenues_article_date_source ON revenues(article_id, date, source);
     `);
 
     await db.execute(createTablesSQL);

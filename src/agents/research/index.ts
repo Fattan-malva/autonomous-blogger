@@ -6,6 +6,7 @@ import { sql, eq } from 'drizzle-orm';
 import { jsonPrompt, safeParseJson } from '../../utils/json';
 import { fetchAllTrends, formatTrendsForPrompt } from '../../providers/trends';
 import { cacheGet, cacheSet, cacheKey } from '../../services/cache';
+import { logger } from '../../config/logger';
 
 interface TopicDiscovery {
   keyword: string;
@@ -82,6 +83,14 @@ Mix categories:
 - Health & Fitness
 - Pets
 
+CRITICAL RULES:
+- Focus on LOW DIFFICULTY topics (difficulty < 0.3)
+- Long-tail keywords only (3-5 words, specific intent)
+- Informational intent preferred (easier to rank)
+- Monthly search volume between 100-2000
+- AVOID competitive topics like: cloud computing, AWS, Docker, Kubernetes, React, Node.js, machine learning, AI, blockchain
+- PREFER niche topics like: specific tools, beginner guides, comparisons between two specific things
+
 Prioritize:
 1. High search demand
 2. Low competition
@@ -135,7 +144,7 @@ Return JSON only.`);
     }
 
     const ranked = discovered
-      .map(t => ({ ...t, seoScore: computeSeoScore(t) }))
+      .map(t => ({ ...t, cluster: t.category, seoScore: computeSeoScore(t) }))
       .sort((a, b) => b.seoScore - a.seoScore);
 
     return {
@@ -270,20 +279,19 @@ Return JSON only.`);
       );
     }
 
+    logger.debug('Deep research completed', {
+      topic,
+      trendingKeyword: keywordTrending,
+      sources: {
+        reddit: trends.sources.reddit.length,
+        hackernews: trends.sources.hackernews.length,
+        googleNews: trends.sources.googleNews.length,
+      },
+    });
+
     return {
       success: true,
-      data: {
-        ...researchData,
-        _trendContext: {
-          trendingKeyword: keywordTrending,
-          sources: {
-            reddit: trends.sources.reddit.length,
-            hackernews: trends.sources.hackernews.length,
-            googleNews: trends.sources.googleNews.length,
-          },
-          trendingKeywords: trends.trendingKeywords,
-        },
-      },
+      data: researchData,
     };
   }
 }
