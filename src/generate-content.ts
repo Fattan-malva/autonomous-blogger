@@ -150,17 +150,15 @@ Return a JSON object`);
   });
   const imageList = (imageResult.data?.images as Array<Record<string, unknown>>) || [];
 
-  // Step 5: Adsterra
+  // Step 5: Adsterra (AI-driven ad placement)
   console.log('[5/5] Generating Adsterra layout...');
   const adsterraAgent = new AdsterraAgent();
-  const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: rawContent });
-  const layout = (adResult.data?.layout as Record<string, unknown>) || {};
-  const adScripts = {
-    socialBar: (layout.socialBarScript as string) || '',
-    displayBanner: (layout.displayBannerScript as string) || '',
-    nativeBanner: (layout.nativeBannerScript as string) || '',
-    popunder: (layout.popunderScript as string) || '',
-  };
+  const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: rawContent, title: keyword });
+  const adLayout = (adResult.data?.layout as Record<string, string>) || {};
+  const adPlacements = (adResult.data?.placements as Array<{ type: string; position: string; paragraphIndex?: number }>) || [];
+  const adPackageName = (adResult.data?.packageName as string) || 'standard';
+  const adReason = (adResult.data?.reason as string) || '';
+  console.log(`  Ad package: "${adPackageName}" — ${adReason}`);
 
   // --- Assemble HTML ---
   const metaTitle = (seo?.metaTitle as string) || keyword;
@@ -199,43 +197,27 @@ Return a JSON object`);
     htmlContent = htmlContent.replace('<h1>', fallbackImg + '\n<h1>');
   }
 
-  // Inject display banner after first H2
-  if (adScripts.displayBanner) {
-    const firstH2 = htmlContent.indexOf('<h2>');
-    if (firstH2 > 0) {
-      const afterH2 = htmlContent.indexOf('</h2>', firstH2) + 5;
-      htmlContent = htmlContent.slice(0, afterH2) + '\n' + adScripts.displayBanner + '\n' + htmlContent.slice(afterH2);
-    }
-  }
-
-  // Inject native banner before FAQ
-  if (adScripts.nativeBanner) {
-    let faqIdx = htmlContent.lastIndexOf('<h2>FAQ');
-    if (faqIdx < 0) faqIdx = htmlContent.lastIndexOf('<h3>FAQ');
-    if (faqIdx < 0) faqIdx = htmlContent.lastIndexOf('<h2>Frequently Asked Questions');
-    if (faqIdx > 0) {
-      htmlContent = htmlContent.slice(0, faqIdx) + adScripts.nativeBanner + '\n' + htmlContent.slice(faqIdx);
-    } else {
-      htmlContent += '\n' + adScripts.nativeBanner;
+  // Inject ads using AI-driven placements
+  if (adPlacements.length > 0) {
+    const injectResult = await adsterraAgent.run({
+      action: 'inject-ads',
+      content: htmlContent,
+      placements: adPlacements,
+      layout: adLayout,
+    });
+    if (injectResult.data?.content) {
+      htmlContent = injectResult.data.content as string;
     }
   }
 
   // Build body content (theme handles all <head> SEO tags)
   const bodyParts: string[] = [];
 
-  if (adScripts.socialBar) {
-    bodyParts.push(adScripts.socialBar);
-  }
-
   if (metaDescription) {
     bodyParts.push(`<p><em>${escapeHtml(metaDescription)}</em></p>`);
   }
 
   bodyParts.push(htmlContent);
-
-  if (adScripts.popunder) {
-    bodyParts.push(adScripts.popunder);
-  }
 
   const finalHtml = bodyParts.join('\n');
 

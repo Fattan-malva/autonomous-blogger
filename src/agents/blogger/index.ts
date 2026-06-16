@@ -12,7 +12,7 @@ export class BloggerAgent extends BaseAgent {
   }
 
   async execute(input: AgentInput): Promise<AgentOutput> {
-    const { action, articleId, content, title, labels, seoData, adsterraLayout } = input;
+    const { action, articleId, content, title, labels, seoData, adsterraLayout, adPlacements } = input;
 
     switch (action) {
       case 'publish':
@@ -22,7 +22,8 @@ export class BloggerAgent extends BaseAgent {
           title as string,
           labels as string[],
           seoData as Record<string, unknown>,
-          adsterraLayout as string
+          adsterraLayout as string,
+          adPlacements as Array<Record<string, unknown>> | undefined
         );
       case 'update':
         return this.updateBloggerPost(
@@ -44,7 +45,8 @@ export class BloggerAgent extends BaseAgent {
     title: string,
     labels?: string[],
     seoData?: Record<string, unknown>,
-    adsterraLayout?: string
+    adsterraLayout?: string,
+    adPlacements?: Array<Record<string, unknown>>
   ): Promise<AgentOutput> {
     let htmlContent = this.markdownToHtml(content);
     const keyword = (labels || [])[0] || '';
@@ -56,7 +58,7 @@ export class BloggerAgent extends BaseAgent {
     htmlContent = this.injectContentStyles() + '\n' + htmlContent;
 
     if (adsterraLayout) {
-      htmlContent = this.injectAdsterra(htmlContent, adsterraLayout);
+      htmlContent = this.injectAdsterra(htmlContent, adsterraLayout, adPlacements);
     }
 
     const seo = seoData as Record<string, unknown> | undefined;
@@ -329,42 +331,106 @@ function copyCode(btn) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  private injectAdsterra(htmlContent: string, adLayoutJson: string): string {
+  private injectAdsterra(htmlContent: string, adLayoutJson: string, adPlacements?: Array<Record<string, unknown>>): string {
     try {
       const layout = typeof adLayoutJson === 'string' ? JSON.parse(adLayoutJson) : adLayoutJson;
 
-      const adScripts: Record<string, string> = {
-        socialBar: layout.socialBarScript || '',
-        nativeBanner: layout.nativeBannerScript || '',
-        displayBanner: layout.displayBannerScript || '',
-        popunder: layout.popunderScript || '',
-      };
-
       let result = htmlContent;
+
+      // If placements are provided, use position-based injection
+      if (adPlacements && adPlacements.length > 0) {
+        for (const p of adPlacements) {
+          const adType = p.type as string;
+          const position = p.position as string;
+          const paragraphIndex = p.paragraphIndex as number | undefined;
+          const script = layout[adType] || '';
+          if (!script) continue;
+
+          result = this.injectAtPosition(result, script, position, paragraphIndex);
+        }
+        return result;
+      }
+
+      // Fallback: legacy injection from layout object keys
+      const adScripts: Record<string, string> = {
+        socialBar: layout.socialBar || layout.socialBarScript || '',
+        nativeBanner: layout.nativeBanner || layout.nativeBannerScript || '',
+        displayBanner: layout.displayBanner || layout.displayBannerScript || '',
+        banner728x90: layout.banner728x90 || '',
+        banner300x250: layout.banner300x250 || '',
+        banner320x50: layout.banner320x50 || '',
+        popunder: layout.popunder || layout.popunderScript || '',
+      };
 
       if (adScripts.socialBar) {
         result = adScripts.socialBar + '\n' + result;
       }
 
-      if (adScripts.displayBanner) {
-        result = result.replace('</p>', `</p>\n${adScripts.displayBanner}\n`);
+      if (adScripts.displayBanner || adScripts.banner728x90) {
+        const banner = adScripts.displayBanner || adScripts.banner728x90;
+        const firstH2 = result.indexOf('<h2>');
+        if (firstH2 > 0) {
+          const insertPoint = result.indexOf('</h2>', firstH2) + 5;
+          result = result.slice(0, insertPoint) + '\n' + banner + '\n' + result.slice(insertPoint);
+        }
       }
 
       if (adScripts.nativeBanner) {
         let faqIndex = result.lastIndexOf('<h3>FAQ');
         if (faqIndex < 0) faqIndex = result.lastIndexOf('<h2>FAQ');
+        if (faqIndex < 0) faqIndex = result.lastIndexOf('<h2>Frequently Asked');
         if (faqIndex > 0) {
-          result = result.slice(0, faqIndex) + `\n${adScripts.nativeBanner}\n` + result.slice(faqIndex);
+          result = result.slice(0, faqIndex) + '\n' + adScripts.nativeBanner + '\n' + result.slice(faqIndex);
         }
       }
 
       if (adScripts.popunder) {
-        result += `\n${adScripts.popunder}`;
+        result += '\n' + adScripts.popunder;
       }
 
       return result;
     } catch {
       return htmlContent;
+    }
+  }
+
+  private injectAtPosition(html: string, script: string, position: string, paragraphIndex?: number): string {
+    switch (position) {
+      case 'top':
+        return script + '\n' + html;
+
+      case 'after_first_h2': {
+        const firstH2 = html.indexOf('<h2>');
+        if (firstH2 > 0) {
+          const afterH2 = html.indexOf('</h2>', firstH2) + 5;
+          return html.slice(0, afterH2) + '\n' + script + '\n' + html.slice(afterH2);
+        }
+        return html + '\n' + script;
+      }
+
+      case 'after_paragraph': {
+        const paraIdx = paragraphIndex ?? 3;
+        const blocks = html.split(/\n\n+/);
+        const insertAt = Math.min(paraIdx + 1, blocks.length);
+        blocks.splice(insertAt, 0, script);
+        return blocks.join('\n\n');
+      }
+
+      case 'before_faq': {
+        let faqIdx = html.lastIndexOf('<h3>FAQ');
+        if (faqIdx < 0) faqIdx = html.lastIndexOf('<h2>FAQ');
+        if (faqIdx < 0) faqIdx = html.lastIndexOf('<h2>Frequently Asked');
+        if (faqIdx > 0) {
+          return html.slice(0, faqIdx) + '\n' + script + '\n' + html.slice(faqIdx);
+        }
+        return html + '\n' + script;
+      }
+
+      case 'end':
+        return html + '\n' + script;
+
+      default:
+        return html;
     }
   }
 }

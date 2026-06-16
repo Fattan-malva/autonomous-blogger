@@ -1,144 +1,217 @@
 import { BaseAgent, AgentInput, AgentOutput } from '../base';
-import { env } from '../../config/env';
+import { generateContent } from '../../providers/google-ai';
 import { logger } from '../../config/logger';
-import { AdsterraApiService, AdsterraData, AdsterraPlacement } from '../../services/adsterra-api';
+import {
+    adsterraConfig,
+    adPackages,
+    getAdScript,
+    getAdPackage,
+    listAdTypes,
+    listAdPackages,
+    resolvePlacements,
+    type AdDecision,
+    type AdPlacement,
+    type AdType,
+} from '../../config/addstera';
 
 export class AdsterraAgent extends BaseAgent {
-  private api: AdsterraApiService;
-  private data: AdsterraData | null = null;
 
-  constructor() {
-    super('Adsterra');
-    this.api = new AdsterraApiService();
-  }
-
-  async execute(input: AgentInput): Promise<AgentOutput> {
-    const { action, articleContent } = input;
-
-    switch (action) {
-      case 'generate-layout':
-        return this.generateAdLayout(articleContent as string);
-      case 'inject-ads':
-        return this.injectAds(articleContent as string);
-      default:
-        return { success: false, error: `Unknown action: ${action}` };
-    }
-  }
-
-  private async ensureData(): Promise<AdsterraData | null> {
-    if (this.data) return this.data;
-
-    try {
-      this.data = await this.api.fetchAdsterraData();
-      logger.info(`Fetched ${this.data.placements.length} placements, key=${this.data.key}`);
-      return this.data;
-    } catch (err) {
-      logger.warn(`Failed to fetch Adsterra data: ${(err as Error).message}`);
-      return null;
-    }
-  }
-
-  private hasData(): boolean {
-    return !!env.ADSTERRA_API_TOKEN;
-  }
-
-  private placement(titlePart: string): AdsterraPlacement | undefined {
-    if (!this.data) return undefined;
-    const lower = titlePart.toLowerCase();
-    return this.data.placements.find(
-      p => p.title.toLowerCase().includes(lower)
-    );
-  }
-
-  private async generateAdLayout(content: string): Promise<AgentOutput> {
-    const h2Count = (content.match(/^## /gm) || []).length;
-    const wordCount = content.split(/\s+/).length;
-
-    if (!this.hasData()) {
-      return {
-        success: true,
-        data: {
-          layout: { socialBarScript: '', nativeBannerScript: '', displayBannerScript: '', popunderScript: '' },
-          placements: {},
-          note: 'ADSTERRA_API_TOKEN tidak dikonfigurasi',
-        },
-      };
+    constructor() {
+        super('Adsterra');
     }
 
-    await this.ensureData();
+    async execute(input: AgentInput): Promise<AgentOutput> {
+        const { action, articleContent, title } = input;
 
-    const layout = {
-      socialBarScript: this.socialBarScript(),
-      nativeBannerScript: this.nativeBannerScript(),
-      displayBannerScript: this.displayBannerScript(),
-      popunderScript: this.popunderScript(),
-      placements: {
-        afterFirstH2: true,
-        midArticle: wordCount > 1500,
-        beforeFAQ: content.includes('FAQ'),
-        endOfArticle: true,
-      },
-      h2Count,
-      wordCount,
-    };
-
-    return { success: true, data: { layout } };
-  }
-
-  private async injectAds(content: string): Promise<AgentOutput> {
-    if (!this.hasData()) {
-      return { success: true, data: { content, note: 'ADSTERRA_API_TOKEN tidak dikonfigurasi' } };
+        switch (action) {
+            case 'generate-layout':
+                return this.generateAdLayout(articleContent as string, title as string);
+            case 'inject-ads':
+                return this.injectAds(articleContent as string, input);
+            default:
+                return { success: false, error: `Unknown action: ${action}` };
+        }
     }
 
-    await this.ensureData();
-    const injected = this.injectAdCodes(content);
-    return { success: true, data: { content: injected } };
-  }
+    private async generateAdLayout(content: string, title?: string): Promise<AgentOutput> {
+        try {
+            const decision = await this.decideAdLayout(content, title);
+            const placements = resolvePlacements(decision);
 
-  private socialBarScript(): string {
-    return '<script src="https://pl29751140.effectivecpmnetwork.com/0d/e2/bd/0de2bd7c5e002d37e7a7fff2e46a5805.js"><\/script>';
-  }
+            const layout: Record<string, string> = {};
+            for (const p of placements) {
+                layout[p.type] = getAdScript(p.type);
+            }
 
-  private nativeBannerScript(): string {
-    return '<script async="async" data-cfasync="false" src="https://pl29751139.effectivecpmnetwork.com/889c24ddbabf6a0bef7977f62c8b54b4/invoke.js"><\/script>\n<div id="container-889c24ddbabf6a0bef7977f62c8b54b4"><\/div>';
-  }
-
-  private displayBannerScript(): string {
-    return '<script>atOptions={\'key\':\'04e50b86336e1cbd7fd18562f36ee01c\',\'format\':\'iframe\',\'height\':90,\'width\':728,\'params\':{}};<\/script>\n<script src="https://www.highperformanceformat.com/04e50b86336e1cbd7fd18562f36ee01c/invoke.js"><\/script>';
-  }
-
-  private popunderScript(): string {
-    return '<script src="https://pl29751138.effectivecpmnetwork.com/1e/49/c1/1e49c17ca958309ec011f24c528755f7.js"><\/script>';
-  }
-
-  private injectAdCodes(htmlContent: string): string {
-    let result = htmlContent;
-
-    const social = this.socialBarScript();
-    if (social) {
-      result = social + '\n' + result;
+            return {
+                success: true,
+                data: {
+                    layout,
+                    placements,
+                    packageName: decision.packageName,
+                    reason: decision.reason,
+                },
+            };
+        } catch (err) {
+            logger.warn(`AI ad decision failed, using default: ${(err as Error).message}`);
+            const defaultPkg = getAdPackage('standard')!;
+            const placements = defaultPkg.placements;
+            const layout: Record<string, string> = {};
+            for (const p of placements) {
+                layout[p.type] = getAdScript(p.type);
+            }
+            return {
+                success: true,
+                data: {
+                    layout,
+                    placements,
+                    packageName: 'standard',
+                    reason: 'fallback: AI decision failed',
+                },
+            };
+        }
     }
 
-    const display = this.displayBannerScript();
-    if (display) {
-      const firstH2 = result.indexOf('<h2>');
-      if (firstH2 > 0) {
-        const insertPoint = result.indexOf('</h2>', firstH2) + 5;
-        result = result.slice(0, insertPoint) + '\n' + display + '\n' + result.slice(insertPoint);
-      }
+    private async decideAdLayout(content: string, title?: string): Promise<AdDecision> {
+        const wordCount = content.split(/\s+/).length;
+        const h2Count = (content.match(/^## /gm) || []).length;
+        const h3Count = (content.match(/^### /gm) || []).length;
+        const hasFAQ = /FAQ|Frequently Asked/i.test(content);
+        const hasCodeBlocks = /```[\s\S]*?```/.test(content);
+        const paragraphs = content.split(/\n\n+/).filter(p => p.trim().length > 50);
+
+        const articleInfo = {
+            title: title || 'untitled',
+            wordCount,
+            h2Count,
+            h3Count,
+            hasFAQ,
+            hasCodeBlocks,
+            paragraphCount: paragraphs.length,
+        };
+
+        const prompt = `You are an ad placement strategist for a blog. Analyze this article and decide the best ad package and placements.
+
+ARTICLE INFO:
+${JSON.stringify(articleInfo, null, 2)}
+
+AVAILABLE AD PACKAGES:
+${listAdPackages().join('\n')}
+
+AVAILABLE AD TYPES:
+${listAdTypes().join(', ')}
+
+RULES:
+- Choose ONE package name from: ${adPackages.map(p => `"${p.name}"`).join(', ')}
+- If none of the packages fit perfectly, you can provide customPlacements instead
+- Ad placements must feel natural — never break mid-sentence or mid-list
+- For long articles (2000+ words), prefer "heavy" package
+- For short articles (<800 words), prefer "light" package
+- If the article has FAQ section, always include native banner before it
+- Always include popunder at the end
+- For technical content with code blocks, prefer fewer in-content banners
+
+Return a JSON object:
+{
+  "packageName": "light|standard|heavy|mobile|sidebar",
+  "customPlacements": null,
+  "reason": "brief explanation of why this package was chosen"
+}
+
+If using custom placements instead of a package:
+{
+  "packageName": "custom",
+  "customPlacements": [
+    { "type": "adType", "position": "top|after_first_h2|after_paragraph|before_faq|end", "paragraphIndex": 3 }
+  ],
+  "reason": "..."
+}
+
+IMPORTANT: Return ONLY the JSON object. No markdown, no explanation.`;
+
+        const response = await generateContent(prompt);
+
+        let decision: AdDecision;
+        try {
+            const cleaned = response
+                .replace(/```(?:json)?\n?/gi, '')
+                .replace(/\n```/g, '')
+                .replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, (_, json) => json)
+                .trim();
+            decision = JSON.parse(cleaned);
+        } catch {
+            throw new Error('Failed to parse AI ad decision');
+        }
+
+        if (!decision.packageName || !decision.reason) {
+            throw new Error('AI returned incomplete ad decision');
+        }
+
+        logger.info('AI ad decision', {
+            package: decision.packageName,
+            reason: decision.reason,
+        });
+
+        return decision;
     }
 
-    const native = this.nativeBannerScript();
-    if (native && result.includes('<h3>')) {
-      const lastH3 = result.lastIndexOf('<h3>');
-      result = result.slice(0, lastH3) + native + '\n' + result.slice(lastH3);
+    private async injectAds(content: string, input: AgentInput): Promise<AgentOutput> {
+        const placements = input.placements as AdPlacement[] | undefined;
+        const layout = input.layout as Record<string, string> | undefined;
+
+        if (!placements || placements.length === 0) {
+            return { success: true, data: { content } };
+        }
+
+        let result = content;
+
+        for (const p of placements) {
+            const script = layout?.[p.type] || getAdScript(p.type);
+            if (!script) continue;
+
+            result = this.injectAtPosition(result, script, p);
+        }
+
+        return { success: true, data: { content: result } };
     }
 
-    const pop = this.popunderScript();
-    if (pop) {
-      result += '\n' + pop;
-    }
+    private injectAtPosition(html: string, script: string, placement: AdPlacement): string {
+        switch (placement.position) {
+            case 'top':
+                return script + '\n' + html;
 
-    return result;
-  }
+            case 'after_first_h2': {
+                const firstH2 = html.indexOf('<h2>');
+                if (firstH2 > 0) {
+                    const afterH2 = html.indexOf('</h2>', firstH2) + 5;
+                    return html.slice(0, afterH2) + '\n' + script + '\n' + html.slice(afterH2);
+                }
+                return html + '\n' + script;
+            }
+
+            case 'after_paragraph': {
+                const paraIdx = placement.paragraphIndex ?? 3;
+                const blocks = html.split(/\n\n+/);
+                const insertAt = Math.min(paraIdx + 1, blocks.length);
+                blocks.splice(insertAt, 0, script);
+                return blocks.join('\n\n');
+            }
+
+            case 'before_faq': {
+                let faqIdx = html.lastIndexOf('<h3>FAQ');
+                if (faqIdx < 0) faqIdx = html.lastIndexOf('<h2>FAQ');
+                if (faqIdx < 0) faqIdx = html.lastIndexOf('<h2>Frequently Asked');
+                if (faqIdx > 0) {
+                    return html.slice(0, faqIdx) + '\n' + script + '\n' + html.slice(faqIdx);
+                }
+                return html + '\n' + script;
+            }
+
+            case 'end':
+                return html + '\n' + script;
+
+            default:
+                return html;
+        }
+    }
 }

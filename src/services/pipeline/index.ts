@@ -182,9 +182,10 @@ export async function runFullPipeline(): Promise<PipelineResult> {
     // STEP 11: ADSTERRA
     log('Adsterra — Generate Ad Layout');
     const adsterraAgent = new AdsterraAgent();
-    const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: contentWithImages });
-    const hasAds = !!(adResult.data?.layout as Record<string, unknown>)?.socialBarScript;
-    logDone(adResult.success, hasAds ? 'Ad scripts generated' : 'No ADSTERRA_API_TOKEN configured');
+    const adResult = await adsterraAgent.run({ action: 'generate-layout', articleContent: contentWithImages, title: planTitle });
+    const hasAds = !!(adResult.data?.layout as Record<string, string>)?.socialBar;
+    const adPackageName = (adResult.data?.packageName as string) || 'standard';
+    logDone(adResult.success, hasAds ? `Ad package: ${adPackageName}` : 'No ADSTERRA_API_TOKEN configured');
     result.stepsCompleted++;
     await sleep(STEP_DELAY_MS);
 
@@ -198,6 +199,7 @@ export async function runFullPipeline(): Promise<PipelineResult> {
       labels: [firstCluster || 'general'],
       seoData: seoResult.data?.seo,
       adsterraLayout: JSON.stringify(adResult.data?.layout || {}),
+      adPlacements: adResult.data?.placements || [],
     });
     logDone(blogResult.success, `Published: ${(blogResult.data?.url as string) || ''}`);
     result.postId = blogResult.data?.postId as string;

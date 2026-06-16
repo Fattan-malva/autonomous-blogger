@@ -1,7 +1,11 @@
-import puppeteer, { Browser, Page } from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { Browser, Page } from 'puppeteer';
 import { getBotConfig, BotConfig } from './bot-config';
 import { getTodayLog, updateTodayLog, endTodayLog, getClickStats } from './click-log';
 import { logger } from '../config/logger';
+
+puppeteer.use(StealthPlugin());
 
 const BLOG_URL = 'https://fattan-dev.blogspot.com';
 const SITEMAP_URL = `${BLOG_URL}/sitemap.xml`;
@@ -171,6 +175,20 @@ async function visitPost(browser: Browser, url: string, config: BotConfig): Prom
 
   try {
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 45000 });
+
+    // Extra anti-detection: override webdriver after page load
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
+
+    // Wait for ad elements to render (max 8 seconds)
+    try {
+      await page.waitForSelector(
+        'iframe[src*="effectivecpmnetwork"], iframe[src*="highperformanceformat"], div[id*="container-"]',
+        { timeout: 8000 }
+      );
+    } catch {}
+
     await sleep(rand(2000, 5000));
 
     // Initial scroll
@@ -181,6 +199,12 @@ async function visitPost(browser: Browser, url: string, config: BotConfig): Prom
     const ads = await findAds(page);
     const maxClicks = rand(config.clicksPerVisitorMin, config.clicksPerVisitorMax);
     const visitedInternal: string[] = [];
+
+    if (ads.length > 0) {
+      logger.debug(`Visitor ${currentVisitor}: found ${ads.length} ad elements: ${ads.map(a => a.selector).join(', ')}`);
+    } else {
+      logger.debug(`Visitor ${currentVisitor}: no ad elements found`);
+    }
 
     for (let i = 0; i < maxClicks; i++) {
       if (botStopRequested) break;
@@ -281,6 +305,8 @@ export async function startBot(): Promise<void> {
 
       if (result.adClicks > 0) {
         logger.info(`Bot visitor ${currentVisitor}: +${result.adClicks} ad clicks`);
+      } else {
+        logger.debug(`Visitor ${currentVisitor}: 0 ad clicks`);
       }
 
       // Delay between visitors

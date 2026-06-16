@@ -22,7 +22,9 @@ export const env = {
   SEARCH_CONSOLE_CLIENT_SECRET: process.env.SEARCH_CONSOLE_CLIENT_SECRET || '',
   SEARCH_CONSOLE_REFRESH_TOKEN: process.env.SEARCH_CONSOLE_REFRESH_TOKEN || '',
 
-  ADSTERRA_API_TOKEN: process.env.ADSTERRA_API_TOKEN || '',
+    ADSTERRA_API_TOKEN: process.env.ADSTERRA_API_TOKEN || '',
 
-  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+    UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY || '',
+
+    LOG_LEVEL: process.env.LOG_LEVEL || 'info',
 } as const;
