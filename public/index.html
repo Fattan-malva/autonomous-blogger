@@ -997,6 +997,89 @@ async function saveBotConfig() {
   }
 }
 
+// ===== PIPELINE PROGRESS =====
+async function loadPipelineProgress() {
+  try {
+    const p = await api('/api/dashboard/pipeline-progress');
+    const el = document.getElementById('pipelineProgress');
+    if (p.running) {
+      el.style.display = 'block';
+      document.getElementById('pipelineStatusBadge').textContent = 'Running';
+      document.getElementById('pipelineStatusBadge').className = 'status-badge running';
+      document.getElementById('pipelineStepName').textContent = `Step ${p.step}/${p.totalSteps}: ${p.stepName}`;
+      document.getElementById('pipelineBar').style.width = ((p.step / p.totalSteps) * 100) + '%';
+      document.getElementById('pipelineStepCount').textContent = `${p.step} / ${p.totalSteps}`;
+      document.getElementById('pipelineAgent').textContent = `Agent: ${p.agent}`;
+    } else if (p.status === 'completed') {
+      el.style.display = 'block';
+      document.getElementById('pipelineStatusBadge').textContent = 'Completed';
+      document.getElementById('pipelineStatusBadge').className = 'status-badge success';
+      document.getElementById('pipelineStepName').textContent = `Completed at ${new Date(p.completedAt).toLocaleTimeString()}`;
+      document.getElementById('pipelineBar').style.width = '100%';
+      document.getElementById('pipelineStepCount').textContent = '13 / 13';
+      document.getElementById('pipelineAgent').textContent = '';
+    } else if (p.status === 'failed') {
+      el.style.display = 'block';
+      document.getElementById('pipelineStatusBadge').textContent = 'Failed';
+      document.getElementById('pipelineStatusBadge').className = 'status-badge error';
+      document.getElementById('pipelineStepName').textContent = `Failed: ${esc(p.error || 'Unknown error')}`;
+      document.getElementById('pipelineBar').style.width = '0%';
+      document.getElementById('pipelineStepCount').textContent = 'Failed';
+      document.getElementById('pipelineAgent').textContent = '';
+    } else {
+      el.style.display = 'none';
+    }
+  } catch {}
+}
+
+// ===== SEO =====
+async function loadSEO() {
+  try {
+    const data = await api('/api/dashboard/articles-with-seo');
+    document.getElementById('seoBody').innerHTML = Array.isArray(data) && data.length
+      ? data.map(a => `<tr>
+          <td><strong>${esc(a.title)}</strong></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(a.meta_title || '')}">${esc(a.meta_title || '-')}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(a.meta_description || '')}">${esc(a.meta_description || '-')}</td>
+          <td style="font-size:11px">${esc(a.canonical_url || '-')}</td>
+          <td>${a.schema_markup ? '✅' : '❌'}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="empty">No articles with SEO data</td></tr>';
+  } catch { document.getElementById('seoBody').innerHTML = '<tr><td colspan="5" class="empty">Error loading SEO data</td></tr>'; }
+}
+
+// ===== RESEARCH =====
+async function loadResearchTopics() {
+  try {
+    const topics = await api('/api/dashboard/topics?limit=50');
+    document.getElementById('researchBody').innerHTML = Array.isArray(topics) && topics.length
+      ? topics.map(t => `<tr>
+          <td><strong>${esc(t.keyword)}</strong></td>
+          <td><span class="status-badge draft">${esc(t.cluster || '-')}</span></td>
+          <td>${t.intent || '-'}</td>
+          <td style="font-size:12px">${esc((t.reason || '').substring(0, 60))}</td>
+          <td style="font-size:11px;color:#8b949e">-</td>
+          <td style="font-size:11px;color:#8b949e">-</td>
+          <td><button class="btn btn-sm btn-accent" onclick="viewResearch(${t.id}, '${esc(t.keyword)}')">
+            <svg class="icon icon-sm" viewBox="0 0 16 16"><path d="M8 2c4.5 0 6.5 3 7 4-.5 1-2.5 4-7 4s-6.5-3-7-4c.5-1 2.5-4 7-4Zm0 1.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
+            View
+          </button></td>
+        </tr>`).join('')
+      : '<tr><td colspan="7" class="empty">No topics found. Run discover-topics first.</td></tr>';
+  } catch { document.getElementById('researchBody').innerHTML = '<tr><td colspan="7" class="empty">Error loading topics</td></tr>'; }
+}
+
+async function viewResearch(topicId, keyword) {
+  try {
+    const data = await api('/api/dashboard/research/' + topicId);
+    document.getElementById('researchDetail').style.display = 'block';
+    document.getElementById('researchDetailTitle').textContent = 'Research: ' + keyword;
+    document.getElementById('researchDetailContent').textContent = JSON.stringify(data.data || data, null, 2);
+  } catch (e) {
+    showToast('No research package found for this topic', 'error');
+  }
+}
+
 // ===== AUTO REFRESH =====
 async function checkStatus() {
   try {
