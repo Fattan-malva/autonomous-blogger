@@ -78,17 +78,34 @@ function pickWeighted<T>(items: T[], weights: number[]): T {
   return items[items.length - 1];
 }
 
-async function humanScroll(page: Page): Promise<void> {
+async function humanScroll(page: Page, minSteps?: number): Promise<void> {
   try {
     const height = await page.evaluate('document.body.scrollHeight') as number;
     if (!height || height < 500) return;
-    const steps = rand(4, 10);
+    const steps = minSteps ? rand(minSteps, minSteps + 6) : rand(4, 10);
+
+    if (Math.random() < 0.3) {
+      // Random scroll pattern: scroll to middle, pause, then continue
+      const midY = Math.round(height * (0.2 + Math.random() * 0.4));
+      await page.evaluate(`window.scrollTo(0, ${midY})`);
+      await sleep(rand(2000, 8000));
+    }
+
     for (let i = 0; i <= steps; i++) {
       const pct = i / steps;
       const eased = 1 - Math.pow(1 - pct, 2);
       const y = Math.round(eased * height);
       await page.evaluate(`window.scrollTo(0, ${y})`);
-      await sleep(rand(150, 600));
+      await sleep(rand(100, 800));
+    }
+
+    // Sometimes scroll back up a bit
+    if (Math.random() < 0.25) {
+      const scrollUp = Math.round(height * (0.1 + Math.random() * 0.3));
+      await page.evaluate(`window.scrollTo(0, ${height - scrollUp})`);
+      await sleep(rand(1000, 4000));
+      // Then scroll down again
+      await page.evaluate(`window.scrollTo(0, ${height})`);
     }
   } catch {}
 }
@@ -206,30 +223,47 @@ async function visitPost(browser: Browser, url: string, config: BotConfig): Prom
       logger.debug(`Visitor ${currentVisitor}: no ad elements found`);
     }
 
+    // Decide if this visitor should click ads (only ~30% of visitors click ads)
+    const shouldClickAds = ads.length > 0 && Math.random() < 0.3;
+
     for (let i = 0; i < maxClicks; i++) {
       if (botStopRequested) break;
 
       const action = pickWeighted(
         ['ad', 'internal', 'scroll'],
-        [config.adClickChance, config.internalLinkChance, 1 - config.adClickChance - config.internalLinkChance]
+        [
+          shouldClickAds ? config.adClickChance : 0,
+          config.internalLinkChance,
+          1 - (shouldClickAds ? config.adClickChance : 0) - config.internalLinkChance
+        ]
       );
 
       if (action === 'ad' && ads.length > 0) {
         const ad = ads[Math.floor(Math.random() * ads.length)];
         if (await clickAd(page, ad)) {
           adClicks++;
+          // After clicking an ad, sometimes wait longer or scroll more
+          if (Math.random() < 0.4) {
+            await sleep(rand(3000, 10000));
+            await humanScroll(page);
+          }
+          // Max 2 ad clicks per visitor
+          if (adClicks >= 2) break;
         }
-      } else if (action === 'internal' && visitedInternal.length < 3) {
+      } else if (action === 'internal' && visitedInternal.length < 2) {
         if (await clickInternalLink(page)) {
           internalClicks++;
           visitedInternal.push(url);
-          await sleep(rand(config.readTimeMin / 2, config.readTimeMax / 2));
+          await sleep(rand(config.readTimeMin / 3, config.readTimeMax / 2));
           await humanScroll(page);
         }
       } else {
-        // Scroll action — no click, just scroll
+        // Scroll action — no click, just scroll with variable timing
+        if (Math.random() < 0.3) {
+          await sleep(rand(3000, 15000));
+        }
         await humanScroll(page);
-        await sleep(rand(2000, 8000));
+        await sleep(rand(2000, 12000));
       }
 
       await sleep(rand(config.betweenClicksMin, config.betweenClicksMax));

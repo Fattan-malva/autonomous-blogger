@@ -8,6 +8,11 @@ export const topics = pgTable('topics', {
   searchVolume: integer('search_volume'),
   difficulty: decimal('difficulty', { precision: 5, scale: 2 }),
   intent: varchar('intent', { length: 50 }),
+  trendScore: integer('trend_score').default(0),
+  monetizationScore: integer('monetization_score').default(0),
+  contentType: varchar('content_type', { length: 50 }),
+  reason: text('reason'),
+  lastVerifiedAt: timestamp('last_verified_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

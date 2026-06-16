@@ -16,6 +16,11 @@ async function migrate() {
         search_volume INTEGER,
         difficulty DECIMAL(5,2),
         intent VARCHAR(50),
+        trend_score INTEGER DEFAULT 0,
+        monetization_score INTEGER DEFAULT 0,
+        content_type VARCHAR(50),
+        reason TEXT,
+        last_verified_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );

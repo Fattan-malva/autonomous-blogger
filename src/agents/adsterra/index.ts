@@ -21,13 +21,14 @@ export class AdsterraAgent extends BaseAgent {
     }
 
     async execute(input: AgentInput): Promise<AgentOutput> {
-        const { action, articleContent, title } = input;
+        const { action, articleContent, content, title } = input;
+        const adContent = (articleContent || content) as string;
 
         switch (action) {
             case 'generate-layout':
-                return this.generateAdLayout(articleContent as string, title as string);
+                return this.generateAdLayout(adContent, title as string);
             case 'inject-ads':
-                return this.injectAds(articleContent as string, input);
+                return this.injectAds(adContent, input);
             default:
                 return { success: false, error: `Unknown action: ${action}` };
         }
